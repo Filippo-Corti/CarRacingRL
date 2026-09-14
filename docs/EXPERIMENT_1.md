@@ -1,44 +1,25 @@
 # Experiment 1 — Actor size on one circuit
 
-> How does actor-network capacity affect final driving performance, interaction
-> efficiency, convergence reliability and computational cost on one fixed
-> circuit?
-
-This is the reported outcome of the Experiment 1 section of
-[`EXPERIMENT.md`](EXPERIMENT.md). That document fixes the design and was frozen
-before any of these runs started; this one records what happened. It does not
-restate the learning rules: the bounded Gaussian policy, the return conventions
-and the optimizer contract are in [`LEARNING.md`](LEARNING.md), and the racing
-MDP and circuit model are in [`MDP.md`](MDP.md) and [`TRACK.md`](TRACK.md).
-
 **Status:** complete. 45 runs, 0 failed, 316.7 minutes of wall time.
-Reproduce with
 
-```
-python experiments/experiment_1.py run
-```
+**Run Experiment** with: `python experiments/experiment_1.py run`
 
-which is resumable and contract-checked: an interrupted matrix continues where
-it stopped, and a run recorded under superseded constants is re-run rather than
-reused. Every table and figure below is regenerated from the raw run records by
-`analyze_results` and written to disk before it is read. Console output and
-hand-copied values are not authoritative; the files under
-`results/analysis/reported_experiments/experiment_1/` are. The figures here are
-copies of those files, kept in `figures/experiment_1/` because `results/` is not
-tracked by git.
+**Run Analysis** with: `python experiments/analyze_results.py`
 
-## What is being varied, and what is not
+Results are saved in the `results` folder (untracked).
 
-One thing changes across the matrix: the width of the two hidden layers of the
-actor. Everything else — circuit, observation, reward, physics, episode limit,
-critic width, learning rate, interaction budget, evaluation schedule — is held
-fixed, so a difference in outcome is attributable to capacity rather than to the
-conditions around it.
+## Research Question
 
-The algorithm comparison is **secondary**. Running the same size ladder under
-REINFORCE, A2C+GAE and PPO describes the practical effect of adding a critic,
-GAE and bounded sample reuse, but the protocol does not assume that the more
-elaborate algorithm must win, and contrary evidence is reported as it is found.
+> **RQ1**: How does actor-network capacity affect training an agent to race a car on one fixed circuit?
+
+**RQ1** is answered by observing, in practice, four measures of training efficiency and efficacy:
+* **Final driving performance**. How fast does the agent complete the lap (if they manage to complete it)?
+* **Interaction efficiency**. How many interactions with the environment does the agent have to perform before reaching the task threshold?
+* **Converge reliability**. How do different runs under the same settings vary in the results?
+* **Computational cost**. How long does the training take for the agent to reach the task threshold?
+
+The actor-size comparison is repeated for REINFORCE, A2C+GAE and PPO. 
+The algorithm comparison is secondary: it describes the practical effect of adding a critic, GAE and bounded sample reuse.
 
 ## Hypotheses
 
