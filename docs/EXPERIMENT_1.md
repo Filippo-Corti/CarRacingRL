@@ -38,15 +38,6 @@ The protocol commits to four, none of which asserts a direction for capacity:
 
 What each one got is answered in [Verdict on the hypotheses](#verdict-on-the-hypotheses).
 
-## Design matrix
-
-One independent unit is a complete training run identified by
-$(\text{algorithm}, \text{actor size}, \text{root identity})$.
-$3 \times 3 \times 5 = 45$ runs. Root identities `0..4` are **paired across
-actor sizes and algorithms**: root 2 names the same derived seed streams wherever
-it appears, so a within-root difference removes the root-to-root variation that
-otherwise dominates a five-sample comparison.
-
 ## Fixed conditions
 
 Every run uses the saved `tracks/experiment_1.json` circuit and its canonical
@@ -540,3 +531,14 @@ Three further limitations are added by what was observed rather than by the desi
 - **A single final evaluation cannot describe a bimodal policy**, as
   `ppo-small-frenet-seed-1` demonstrates. Every "final" number for that cell is a
   sample of size one from a policy that completed three of its last six evaluations.
+
+
+
+# TODO: 
+My doubts about these results:
+- Is the verdict reasonable? We are saying that capacity does not affect final performance. This however may be due to the number of iterations that we ran? It's also a bit hard to imagine why the algorithms have such opposite behaviours. I would want to see an analysis of convergence within the same algorithm of the 3 sizes; maybe this way we would find that the size does condition convergence. And also would give us an indication of whether the sizes even out only after the full budget.
+- Should have we run more roots? Maybe we could find some more patterns.
+- Are our sizes reasonable? Maybe we picked sizes that are just too large, and with a smaller starting size we would find out that it does not converge.
+- I would also like a comparison fixing size. Both convergence and evaluation results, fixing a network size and comparing the 3 algorithms. 
+- Something else that comes to my mind is how the algorithms handle controls. In particular the throttle: do they all properly learn to accelerate/slow down? Or do they kind of sail at a fixed level which works most of the circuit? Are there differences in the 3 algorithms? Or in the sizes?
+Basically I am trying to understand if the experiment setup is reasonable or our results are a bit lame.

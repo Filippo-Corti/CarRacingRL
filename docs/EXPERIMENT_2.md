@@ -1,45 +1,22 @@
 # Experiment 2 — Circuit generalization and observation choice
 
-> How well does the selected PPO actor generalize from procedurally generated
-> training circuits to unseen circuits, and how does the Frenet observation
-> compare with local LiDAR sensing?
-
-This is the reported outcome of the Experiment 2 section of
-[`EXPERIMENT.md`](EXPERIMENT.md). Experiment 1 asked what capacity does on
-**one** circuit; this asks what a policy has actually *learned* — whether it
-drives this circuit or drives circuits — and whether the answer depends on how
-the track is presented to it. Experiment 1's outcome is in
-[`EXPERIMENT_1.md`](EXPERIMENT_1.md).
-
 **Status:** complete. 10 runs, 0 failed, 135.8 minutes of wall time.
-Reproduce with
 
-```
-python experiments/experiment_2.py run
-```
+**Run Experiment** with: `python experiments/experiment_2.py run`
 
-**It depends on Experiment 1.** The actor width is not restated here: the script
-reads it from Experiment 1's recorded `ppo_actor_selection.json` at the same run
-category and fails if that file is absent. Experiment 1 selected the **medium
-`(64, 64)`** actor, and that is what all ten runs use. Every table and figure
-below is regenerated from the raw run records by `analyze_results`; the files
-under `results/analysis/reported_experiments/experiment_2/` are authoritative,
-and the figures here are copies kept in `figures/experiment_2/` because
-`results/` is not tracked by git.
+**Run Analysis** with: `python experiments/analyze_results.py`
 
-Two things vary together and must not be confused:
+Results are saved in the `results` folder (untracked).
 
-- **Generalization** is a property of one condition: the gap between circuits a
-  run trained on and circuits it has never seen.
-- **Observation** is the comparison between conditions: Frenet against LiDAR,
-  paired within each root.
+## Research Questions
+
+> **RQ2**: How well does a PPO agent generalize over unseen procedurally generated circuits? 
+> **RQ3**: How do Frent observations compare with local LiDAR sensing?
 
 ## Hypotheses
 
 - **Generalization.** PPO trained over generated circuits is expected to retain
-  useful performance on unseen generator seeds. The protocol warns that a small
-  gap with poor absolute performance is *not* successful generalization but
-  uniform failure, so both numbers are always reported together.
+  useful performance on unseen generator seeds.
 - **Observation information.** Frenet is expected to learn faster because it
   exposes track-relative geometry and preview curvature directly. LiDAR must
   infer the same things from 16 ranges and may show a larger efficiency or
@@ -47,7 +24,7 @@ Two things vary together and must not be confused:
 - **Track variation.** Both conditions can vary substantially with held-out
   geometry, so per-circuit outcomes accompany every root-level summary.
 
-## Design and splits
+## Fixed conditions
 
 One independent training unit is $(\text{observation type}, \text{root
 identity})$: two observations times five roots is ten runs. Within each root the
@@ -62,9 +39,7 @@ $$
 
 Both carry speed and steering angle; **only the track representation differs**.
 Neither critic receives privileged information, each condition learns its own
-normalization statistics from training only, and LiDAR stays feed-forward
-without frame stacking — its partial observability is part of the
-interpretation, not a defect.
+normalization statistics from training only.
 
 | Split | Count | Role |
 |---|---:|---|
@@ -73,13 +48,6 @@ interpretation, not a defect.
 | validation | 16 | the learning curve and the convergence rule |
 | test | 32 | opened once, after training and selection are complete |
 | training-reference | 16 | circuits *this run trained on*, revisited |
-
-Splits are disjoint deterministic namespaces committed in
-`tracks/experiment_2_splits.json`, which stores identities and geometry but not
-the circuits: they are rebuilt from the frozen generator and re-checked on the
-way back in. Pairing is by **worker and per-worker episode count**, never by a
-global episode index, because the two observation policies produce episodes of
-different lengths.
 
 ---
 
@@ -411,3 +379,11 @@ from 0.438 to 1.000.
   upper clamp, so the absolute performance reported here is that of a capped
   policy class. The cap binds equally on Frenet and LiDAR and so does not affect
   the paired observation contrast.
+
+
+# TODO: 
+I am a bit more confident about these results than those from Experiment 1. 
+My doubts about these results:
+- Should have we reduced the budget? In most of the cases the algorithms do not need it.
+- Should have we used more roots? Maybe it would give more info for the comparison
+- Again, I would like to see some extra data about the controls that the algorithm learns, as I said for Experiment 1.
