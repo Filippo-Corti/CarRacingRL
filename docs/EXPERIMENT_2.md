@@ -1,389 +1,594 @@
 # Experiment 2 — Circuit generalization and observation choice
 
-**Status:** complete. 10 runs, 0 failed, 135.8 minutes of wall time.
+**Status:** 20 completed training runs; ten paired roots; 1 million training
+interactions per run. Each final policy is evaluated on the same 32 test
+circuits. This report uses only the twenty runs in `experiment_2_revised`, with
+evidence available on 2026-09-15.
 
-**Run Experiment** with: `python experiments/experiment_2.py run`
+## Main findings
 
-**Run Analysis** with: `python experiments/analyze_results.py`
+Both observation types support strong driving performance on unseen circuits
+from the training generator. **LiDAR has higher final return and faster laps;
+the small completion-rate difference remains uncertain.**
 
-Results are saved in the `results` folder (untracked).
+- Frenet completes **315/320** test evaluations (98.44%); LiDAR completes
+  **318/320** (99.38%). These are repeated evaluations of ten policies per
+  condition on 32 circuits, not 320 independent trained agents.
+- LiDAR's mean test return is **233.21**, versus **221.36** for Frenet. The
+  paired LiDAR advantage is 11.85 return points; the 95% root-bootstrap
+  interval is **[4.59, 18.78]**.
+- Completed laps average **23.45 s with LiDAR** and **25.64 s with Frenet**.
+  Matching only circuits that both policies complete retains an average LiDAR
+  advantage of **2.21 s** across roots.
+- All twenty runs reach the validation threshold. LiDAR has earlier attainment
+  on average and higher late validation completion, but the paired interval
+  for time to first attainment includes zero. Learning is not permanently stable
+  after the first successful streak.
+- LiDAR takes **6.79 minutes per full run**, versus **5.88** for Frenet. Its
+  higher full-budget cost coexists with earlier average threshold attainment.
 
-## Research Questions
+## 1. Questions and controlled design
 
-> **RQ2**: How well does a PPO agent generalize over unseen procedurally generated circuits? 
-> **RQ3**: How do Frent observations compare with local LiDAR sensing?
+> **RQ2:** Can PPO trained on generated circuits drive unseen circuits?
+>
+> **RQ3:** How do compact Frenet observations compare with local LiDAR sensing
+> in final performance, learning efficiency, stability and learned controls?
 
-## Hypotheses
+The task is to complete a circuit quickly while staying within its boundaries.
+The simulator uses deterministic grip-limited bicycle dynamics, drag and a
+steering-rate limit. Actions request normalized throttle/brake and steering.
+One training interaction advances 0.04 simulated seconds; an episode lasts at
+most 40 s. Training samples randomized start poses, while deterministic
+evaluation starts at each circuit's canonical line at zero speed.
 
-- **Generalization.** PPO trained over generated circuits is expected to retain
-  useful performance on unseen generator seeds.
-- **Observation information.** Frenet is expected to learn faster because it
-  exposes track-relative geometry and preview curvature directly. LiDAR must
-  infer the same things from 16 ranges and may show a larger efficiency or
-  final-performance gap.
-- **Track variation.** Both conditions can vary substantially with held-out
-  geometry, so per-circuit outcomes accompany every root-level summary.
+Reward combines progress, elapsed-time cost and a completion bonus that increases
+with unused episode time. An ordinary step receives 100 times normalized progress
+minus time cost; completion pays 100 plus up to 140 for unused time. A crash
+ends the episode with a penalty of 5 and forfeits the finish bonus. Return is
+therefore sensitive to both crashes and lap duration; completed-lap time measures
+speed conditional on success. The [MDP specification](MDP.md) gives exact details.
 
-## Fixed conditions
+### What differs between conditions
 
-One independent training unit is $(\text{observation type}, \text{root
-identity})$: two observations times five roots is ten runs. Within each root the
-two runs are paired by training-circuit schedule, budget, PPO settings,
-validation circuits and test circuits; only their mutable RNG objects differ.
+| Condition | Inputs | Actor parameters | Critic parameters | Total |
+|---|---|---:|---:|---:|
+| Frenet | Lateral distance, heading error, speed, wheel angle, preview curvature | 4,676 | 4,609 | 9,285 |
+| LiDAR | Speed, wheel angle and 16 normalized boundary ranges | 5,508 | 5,441 | 10,949 |
 
-$$
-O_t^{\mathrm{Frenet}}=(d_t,\phi_{e,t},v_t,\delta_t,\bar\kappa_t)
-\qquad
-O_t^{\mathrm{LiDAR}}=(v_t,\delta_t,\widetilde r_t^{(1)},\ldots,\widetilde r_t^{(16)})
-$$
+LiDAR uses a 200-degree field of view and 100 m maximum range. Both actor and
+critic have two `(64, 64)` hidden layers with `Tanh` activations, and receive the
+same observation within their condition. Neither critic has privileged state
+information. Normalization is learned from training only and frozen at evaluation.
 
-Both carry speed and steering angle; **only the track representation differs**.
-Neither critic receives privileged information, each condition learns its own
-normalization statistics from training only.
+Equal hidden widths give LiDAR 832 additional parameters in **each** network
+because its input dimension is 18 rather than 5. The comparison holds hidden
+architecture fixed, not total parameter count. The parameter difference cannot
+be ruled out as contributing to results merely because it is relatively small.
+Both observations omit parts of the full state, including the episode clock;
+neither is guaranteed to be Markov. Frenet compresses geometry into explicit
+features, while LiDAR supplies a different local description. Neither vector
+is established to contain all the useful information in the other.
 
-| Split | Count | Role |
+### Fixed learning recipe
+
+PPO trains a tanh-squashed Gaussian policy and evaluates `tanh(mean)`.
+Actor/critic learning rates are `3e-4` and `1e-2`; discount is 1.0 and GAE lambda
+is 0.95. Rollouts contain 2,048 transitions; minibatches contain 64; optimization
+uses up to four epochs, clip epsilon 0.2 and target KL 0.02. Log standard
+deviations start at -0.5 and are bounded in `[-5, 0]`. Adam, initialization,
+normalization, reward and physics settings are shared. See the
+[learning contract](LEARNING.md) and [protocol](EXPERIMENT.md).
+
+Medium PPO was selected from Experiment 1's original small/medium/large
+candidate set and remains fixed. The later tiny actor is not used to change
+this observation comparison after seeing its results.
+
+Each run has a **1M-interaction budget**, validation every 50k interactions,
+checkpoints every 250k plus final, and final test evaluation at 1M. Evaluation
+interactions do not consume the training budget. PPO retains its original
+bootstrap from the critic at the 40-second task deadline. This differs from
+REINFORCE's finite Monte Carlo return in Experiment 1, but is identical for
+both conditions here; no timeout-target correction was applied.
+
+### Circuit splits and pairing
+
+| Split | Circuits | Role |
 |---|---:|---|
-| development | 8 | looked at before the experiment; source of the geometry bin edges |
-| training | unbounded | drawn per root and per-worker episode |
-| validation | 16 | the learning curve and the convergence rule |
-| test | 32 | opened once, after training and selection are complete |
-| training-reference | 16 | circuits *this run trained on*, revisited |
+| Development | 8 | Pre-experiment checks and fixed geometry-stratum edges |
+| Training | Generated as episodes start | Per-worker circuit schedule within each root |
+| Training-reference | 16 per root | Previously encountered circuits, revisited by the final policy |
+| Validation | 16 shared | Learning curves, threshold and late stability |
+| Test | 32 shared | Primary final generalization outcome |
 
----
+The [saved split specification](../tracks/experiment_2_splits.json) fixes the
+held-out circuits. Training-reference circuits are the first 16 distinct
+encountered circuits in per-worker episode order. The generator produces circuits
+within one frozen family, with configured length limits of 300–700 m and width
+12 m; unseen seeds are not unseen families of track geometry.
 
-# Result 1 — Parameter counts and circuit exposure
+Roots `0..9` pair Frenet and LiDAR by logical seed identity and each worker's
+training-circuit sequence. Different episode lengths can produce different
+numbers of episodes and hence different total circuit exposure within 1M
+interactions. Pairing does not guarantee identical experience or cancellation
+of seed variation.
 
-| Condition | Observation dimensions | Actor parameters | Critic parameters |
-|---|---:|---:|---:|
-| Frenet | 5 | 4,676 | 4,609 |
-| LiDAR | 18 | 5,508 | 4,609 |
+The test split is excluded from training and validation-based threshold
+measurement. It is reused from the earlier study, whose results informed this
+follow-up; it is therefore not a newly untouched confirmation set. The current
+report neither pools the historical ten runs with these twenty nor selects a
+checkpoint using the revised test outcomes.
 
-**Analysis.** Equal hidden widths do not give equal parameter counts, because
-the input layer differs: LiDAR carries 832 more actor parameters, 17.8% more.
-This is reported rather than removed — equalizing it would mean giving the two
-conditions different hidden widths, which would confound the comparison worse
-than the input layer does. At 832 parameters the difference is far too small to
-explain anything below; Experiment 1 moved actor parameters by $14.5\times$
-between medium and large and produced effects of 26 return points, so a 17.8%
-change in a layer that only reads the observation is not a plausible mechanism
-for a difference of any size found here.
+## 2. Statistical unit and outcome definitions
 
-# Result 2 — Primary outcome: held-out test performance
+Each condition has **ten trained policies**. Test metrics average 32 circuits
+within each root, then give each root equal weight. Paired effects first compute
+Frenet-minus-LiDAR differences within root. 95% intervals use 10,000 whole-root
+bootstrap resamples, seed `0`, with the 2.5th and 97.5th percentiles.
 
-Thirty-two test circuits per run, opened once after training. Means over five
-roots.
+These intervals describe training-root uncertainty conditional on this fixed
+circuit set. They do not separately estimate uncertainty over new circuit draws.
+Repeated appearances of a circuit across roots, or of a policy across circuits,
+are not independent training replications. Secondary contrasts and geometry
+analyses are exploratory; intervals are not adjusted for multiple comparisons.
+An interval containing zero does not establish that the observations are equivalent.
 
-| Observation | Test completion | SD | Test progress | Test return | Crash rate |
-|---|---:|---:|---:|---:|---:|
-| Frenet | 0.894 | 0.190 | 0.952 | 206.85 | 0.019 |
-| LiDAR | 0.838 | 0.241 | 0.924 | 207.48 | 0.113 |
+Final return, progress and completion include failures. Progress means maximum
+normalized distance reached, with tiny finish-line overshoots rounding to 1.000.
+Lap-time means first average successful circuits within each root, then average
+the ten root means; the completion counts identify the excluded failures.
 
-Per-root test completion:
+## 3. Final test performance
 
-| Observation | root 0 | root 1 | root 2 | root 3 | root 4 |
-|---|---:|---:|---:|---:|---:|
-| Frenet | 0.562 | 1.000 | 1.000 | 0.906 | 1.000 |
-| LiDAR | 0.781 | 1.000 | 0.438 | 1.000 | 0.969 |
+| Metric at 1M | Frenet | LiDAR |
+|---|---:|---:|
+| Completed test laps | 315/320 | 318/320 |
+| Mean completion | 0.9844 | 0.9938 |
+| Completion 95% interval | [0.9688, 0.9969] | [0.9813, 1.0000] |
+| Roots completing all 32 circuits | 6/10 | 9/10 |
+| Mean maximum progress | 0.9903 | 0.9978 |
+| Mean return ± across-root SD | 221.36 ± 7.48 | 233.21 ± 7.76 |
+| Return 95% interval | [217.24, 226.03] | [229.11, 238.05] |
+| Mean lap time (s), completed only | 25.64 | 23.45 |
+| Crashed test laps | 5/320 | 2/320 |
+| Stalls / timeouts | 0 / 0 | 0 / 0 |
 
-![Task outcomes](figures/experiment_2/task_outcomes.png)
+![Final test outcomes, with training roots retained](figures/experiment_2/task_outcomes.png)
 
-**Analysis.** Both conditions drive unseen circuits well in absolute terms: the
-central roots complete 90–100% of 32 held-out circuits with progress above 0.95.
-This matters for the Generalization hypothesis, which explicitly warned that a
-small gap with poor performance would be uniform failure rather than success.
-That is not what happened — performance is high *and*, as Result 3 shows, the
-gap is near zero.
+*Hollow points are individual roots; filled points and bars show means and
+95% root-bootstrap intervals. Overlapping roots can share a visible point.*
 
-The mean difference favours Frenet by 0.056 completion, but **the per-root table
-is the honest view and it does not support an observation effect**. Each
-condition has exactly one bad root and they are different roots: Frenet's root 0
-at 0.562, LiDAR's root 2 at 0.438. The other four roots of each condition sit
-between 0.906 and 1.000. With five roots and one outlier apiece, the ranking of
-the means is decided by which outlier is worse, not by the observation.
+Both representations generalize usefully within this circuit family: every
+root completes at least 30/32 test circuits. The result is not driven solely by
+one unusually strong training run. LiDAR's higher mean return appears in nine
+of the ten paired roots, while the completion comparison is much closer.
 
-The one asymmetry that does look real is the **crash rate: 0.113 for LiDAR
-against 0.019 for Frenet**, six times higher, while mean progress differs by
-only 0.028. LiDAR runs fail by crashing; Frenet's rarer failures are more often
-timeouts or stalls that still accumulate progress. That is consistent with what
-the two observations make available — a LiDAR policy that misreads 16 ranges
-puts the car into a wall, while a Frenet policy always knows its signed distance
-to the centreline and can be merely slow rather than wrong.
+### Paired root outcomes
 
-# Result 3 — Generalization: training-reference, validation and test
+Differences below are **Frenet − LiDAR**; a negative return difference favours
+LiDAR. Completion counts are shown directly rather than treating all circuit
+outcomes as separate trained agents.
 
-| Observation | Training-reference | Validation | Test |
-|---|---:|---:|---:|
-| Frenet completion | 0.887 | 0.787 | 0.894 |
-| LiDAR completion | 0.850 | 0.875 | 0.838 |
-| Frenet progress | 0.942 | 0.926 | 0.952 |
-| LiDAR progress | 0.929 | 0.941 | 0.924 |
-
-Per-root gaps, training-reference minus test:
-
-| Observation | root 0 | root 1 | root 2 | root 3 | root 4 |
-|---|---:|---:|---:|---:|---:|
-| Frenet | +0.125 | +0.000 | +0.000 | −0.094 | −0.062 |
-| LiDAR | +0.031 | −0.062 | +0.062 | +0.000 | +0.031 |
-
-**Analysis.** **There is no generalization gap worth the name.** Test completion
-(0.894 Frenet, 0.838 LiDAR) is statistically indistinguishable from performance
-on circuits the run actually trained on (0.887, 0.850), and for Frenet the test
-split is *nominally easier* than the training-reference split. The per-root gaps
-straddle zero in both conditions — five of ten are within ±0.031 — and their
-signs are inconsistent across roots.
-
-Read with Result 2's absolute numbers, this is the Generalization hypothesis
-confirmed in its strong form: high performance *and* no gap. The policy learned
-to drive circuits, not to drive particular circuits. Given that training draws
-an unbounded stream of fresh generated circuits, this is the expected outcome
-rather than a surprise — the agent never sees the same circuit often enough to
-memorize it — but it is worth having measured, because it is what licenses
-reading any of these numbers as a statement about driving.
-
-The one irregularity is **Frenet's validation split at 0.787, below both its own
-training-reference and test values**, a dip LiDAR does not share. Since the same
-16 validation circuits are used by both conditions, this is not a property of
-the split alone; it is an interaction between those circuits and the Frenet
-runs, and with 16 circuits and 5 roots it is most likely sampling noise. It does
-mean the validation-based convergence rule is measuring Frenet on a slightly
-unlucky sample, which is worth remembering when reading convergence times.
-
-# Result 4 — The observation comparison, paired within root
-
-The strongest available comparison: each difference is computed on the **same
-circuit identity** raced by the two runs of the same root, then summarized.
-
-| Split | Paired circuits | Δ completion | SE | Δ progress | Δ return | SE |
-|---|---:|---:|---:|---:|---:|---:|
-| Training-reference | 80 | +0.037 | 0.057 | +0.013 | −3.30 | 11.99 |
-| Validation | 80 | −0.087 | 0.060 | −0.016 | −23.67 | 11.53 |
-| **Test** | **160** | **+0.056** | **0.038** | **+0.028** | **−0.63** | **7.76** |
-
-Run-level paired summary (Frenet − LiDAR), with bootstrap intervals:
-
-| Metric | Mean | 95% interval |
-|---|---:|---|
-| Final completion rate | +0.056 | −0.131 – +0.325 |
-| Final mean progress | +0.028 | −0.067 – +0.166 |
-| Final mean return | −0.63 | −36.5 – +52.5 |
-
-Per-root test differences (Frenet − LiDAR):
-
-| root 0 | root 1 | root 2 | root 3 | root 4 |
+| Root | Frenet laps | LiDAR laps | Completion difference | Return difference |
 |---:|---:|---:|---:|---:|
-| −0.219 | +0.000 | **+0.562** | −0.094 | +0.031 |
+| 0 | 32/32 | 32/32 | 0.0000 | -7.38 |
+| 1 | 31/32 | 32/32 | -0.0313 | -5.14 |
+| 2 | 32/32 | 30/32 | +0.0625 | -11.22 |
+| 3 | 31/32 | 32/32 | -0.0313 | -15.84 |
+| 4 | 31/32 | 32/32 | -0.0313 | -27.91 |
+| 5 | 30/32 | 32/32 | -0.0625 | -19.84 |
+| 6 | 32/32 | 32/32 | 0.0000 | -4.96 |
+| 7 | 32/32 | 32/32 | 0.0000 | +12.59 |
+| 8 | 32/32 | 32/32 | 0.0000 | -11.26 |
+| 9 | 32/32 | 32/32 | 0.0000 | -27.51 |
 
-**Analysis.** **The observation comparison is a null result, and the pairing is
-what makes that statement trustworthy rather than merely unproven.**
+| Paired test metric, Frenet − LiDAR | Mean difference | 95% root interval |
+|---|---:|---|
+| Completion | -0.0094 | [-0.0281, +0.0125] |
+| Maximum progress | -0.0074 | [-0.0187, +0.0032] |
+| Return | -11.85 | [-18.78, -4.59] |
 
-On the test split — the primary outcome, 160 paired circuits — Frenet leads by
-0.056 completion against a standard error of 0.038, and by −0.63 in return
-against a standard error of 7.76. The return difference is not merely
-insignificant; its point estimate is essentially zero and its sign is *opposite*
-to the completion difference. Every interval in the run-level table spans zero
-comfortably.
+The completion point difference is only **0.94 percentage points**. Its interval
+allows either a modest Frenet advantage or a modest LiDAR advantage; it does not
+establish equal reliability. The return interval instead supports a LiDAR
+advantage under this recipe and budget. Return and completion answer different
+questions once most circuits are completed.
 
-The per-root row shows why no amount of extra care rescues a signal here. Root 2
-alone contributes +0.562, and roots 0 and 3 lean the other way. **The spread
-across roots is an order of magnitude larger than the difference between
-conditions.** With five roots, the observation effect — if one exists — is below
-this experiment's resolution.
+### Does the lap-time advantage survive matched completion?
 
-That is a real answer, and it contradicts the Observation-information
-hypothesis, which expected Frenet to hold an advantage from exposing
-track-relative geometry directly. Sixteen LiDAR ranges, with no frame stacking
-and no privileged information, are enough to drive unseen circuits as well as an
-explicit Frenet parameterization on this task. The hypothesis was not wrong
-about the *mechanism* — Frenet does expose more — but it was wrong that the
-exposure would show up in outcomes. What it buys instead appears in Result 2's
-crash rate and Result 6's wall-clock cost.
+The headline 25.64 versus 23.45 s averages slightly different successful subsets.
+As a descriptive check, compare lap times only for circuits completed by both
+conditions within each root. This retains **313 paired circuit evaluations**,
+with 30–32 matched circuits per root. Average the differences within each root
+before comparing roots, using the same bootstrap settings.
 
-# Result 5 — Validation learning curves and convergence
+The mean Frenet-minus-LiDAR lap difference is **+2.21 s**, with interval
+**[+0.61, +3.72] s**. LiDAR is faster on this root-level measure in eight of ten
+roots; roots 1 and 7 favour Frenet. The
+[matched-lap table](tables/experiment_2_matched_laps.csv) records the included
+circuit identities and each root's difference. This checks that the speed
+advantage is not solely an artifact of different failure exclusions. It remains
+conditional on mutual success, so completion and return remain essential.
 
-| Observation | Interactions to convergence, per root |
-|---|---|
-| Frenet | 150k, 650k, 200k, 100k, 200k |
-| LiDAR | 100k, 100k, 150k, 150k, 100k |
+### Where the final failures occur
 
-![Learning curves](figures/experiment_2/learning_curves.png)
+All seven failures are crashes. Frenet fails on circuit 30 in root 1, circuit 22
+in root 3, circuit 10 in root 4, and circuits 10 and 26 in root 5. LiDAR's two
+failures occur in root 2, on circuits 5 and 10. Circuit 10 thus fails under
+multiple trained policies, although most root/observation combinations finish it.
+Coverage at failure ranges from 0.057 to 0.794 of a lap. The records establish
+where failures occur; they do not establish that a policy “misread” its sensor.
 
-**Analysis.** This is the one place the Observation-information hypothesis is not
-just unsupported but **reversed**. LiDAR converges in 100k–150k interactions
-across all five roots; Frenet takes 100k–650k and is the only condition with a
-root needing more than 200k. LiDAR is the more *consistent* learner here, not
-the slower one.
+## 4. Generalization across circuit sets
 
-The curves show why the endpoint tables look so even. Both conditions reach
-their plateau within roughly 150,000–250,000 interactions — the same early-and-
-flat shape PPO showed in Experiment 1 — and then spend the remaining 90% of the
-budget oscillating rather than improving. LiDAR's band (orange) sits slightly
-higher through the middle of training but is also visibly spikier, with sharp
-single-checkpoint drops around 0.5M and 1.1M. Frenet's band widens dramatically
-at the very end, which is root 0 deteriorating.
+These are final-policy evaluations. Training-reference means performance on
+previously encountered circuits, not the reward of stochastic training episodes.
 
-Note that the Frenet root needing 650k is root 1, which finishes at 1.000 test
-completion — slow convergence here does not predict a bad final policy. Read
-alongside Result 3's note that Frenet's validation split is slightly unlucky,
-the convergence comparison should be treated as the weakest evidence in this
-document: it is measured on 16 circuits through a threshold rule, and both
-conditions cross that threshold in well under 10% of the budget.
+| Observation | Split | Completion | Maximum progress | Return |
+|---|---|---:|---:|---:|
+| Frenet | Training-reference | 0.9375 | 0.968 | 212.53 |
+| Frenet | Validation | 0.9125 | 0.977 | 209.24 |
+| Frenet | Test | 0.9844 | 0.990 | 221.36 |
+| LiDAR | Training-reference | 1.0000 | 1.000 | 234.98 |
+| LiDAR | Validation | 0.9813 | 0.993 | 230.95 |
+| LiDAR | Test | 0.9938 | 0.998 | 233.21 |
 
-# Result 6 — Computation
+Mean training-reference-minus-test completion gaps are **-0.0469 for Frenet**
+and **+0.0063 for LiDAR**; return gaps are **-8.83** and **+1.77**. There is no
+large observed loss on the test set relative to the reference circuits. Combined
+with high absolute test performance, this supports useful generalization to
+unseen seeds of the same generator.
 
-| Observation | End-to-end (min) | Throughput (step/s) | Optimization (min) | Peak memory (MB) |
+These point gaps do not prove that generalization error is zero. Circuit sets
+differ in geometry and finite-sample difficulty. Frenet's test completion exceeds
+its validation completion by 7.19 percentage points, versus 1.25 points for
+LiDAR. That difference is relevant when interpreting validation-based attainment;
+it is not established to be sampling noise, nor evidence that validation is
+unfair. The shared validation set interacts differently with the learned policies.
+
+### Descriptive geometry strata
+
+The development-set edges are fixed before these runs: length boundaries are
+433.8 and 463.8 m; curvature boundaries are 0.07109 and 0.08154 m⁻¹, applied to
+each circuit's 90th percentile of absolute curvature. Values at an edge enter
+the higher bin. Each row groups the same test circuits in both conditions.
+Evaluation counts equal circuit count times ten roots and are not independent
+training sample sizes.
+
+| Test stratum | Distinct circuits | Evaluations per condition | Frenet completions | LiDAR completions |
 |---|---:|---:|---:|---:|
-| Frenet | 12.1 | 4,860 | 3.0 | 1,621 |
-| LiDAR | 14.4 | 4,043 | 3.0 | 1,753 |
+| Length 0, shortest | 6 | 60 | 59/60 (98.3%) | 60/60 (100%) |
+| Length 1 | 7 | 70 | 70/70 (100%) | 69/70 (98.6%) |
+| Length 2, longest | 19 | 190 | 186/190 (97.9%) | 189/190 (99.5%) |
+| Absolute-curvature q90 bin 0, mildest | 20 | 200 | 198/200 (99.0%) | 198/200 (99.0%) |
+| Absolute-curvature q90 bin 1 | 5 | 50 | 50/50 (100%) | 50/50 (100%) |
+| Absolute-curvature q90 bin 2, tightest | 7 | 70 | 67/70 (95.7%) | 70/70 (100%) |
 
-**Analysis.** **LiDAR costs 19% more wall time per run, and all of it is in the
-environment rather than in learning.** Optimization is 3.0 minutes in both
-conditions — identical, as it should be, since the networks differ by 832
-parameters and the PPO schedule is the same. The difference is entirely
-collection throughput, 4,043 against 4,860 steps per second, which is the cost
-of casting 16 rays per step against reading a Frenet frame the simulator already
-maintains.
+![Test outcomes across circuit geometry](figures/experiment_2/circuit_geometry.png)
 
-So the observation choice does have a measurable cost; it simply is not a
-*learning* cost. Anyone choosing between these representations on this task is
-trading roughly 17% of environment throughput and a six-fold higher crash rate
-for freedom from a hand-built track parameterization — not for a difference in
-how well the policy drives.
+Completion is high in every stratum, but only seven total failures leave little
+power to characterize failure geometry. The concentration of three Frenet
+failures in the tightest bin is worth recording; it is insufficient to establish
+a general curvature-dependent sensor effect. Length and curvature q90 are
+coarse summaries and can miss individual corners, transitions and start geometry.
 
-Peak memory differs by 132 MB, tracking the wider observation buffers across
-eight persistent workers; it is not a constraint at this scale.
+Mean return decreases from shortest to longest circuits: **234.31 to 214.55**
+for Frenet and **246.90 to 228.43** for LiDAR. Because reward includes elapsed
+time and the remaining-time finish bonus, longer laps can earn less even when
+completed. This association cannot be interpreted as pure failure susceptibility.
+These results do not show that geometry is irrelevant, nor separate root and
+circuit contributions to variance in a formal model.
 
-# Result 7 — Outcomes stratified by circuit geometry
+## 5. Learning efficiency, confirmation and budget choice
 
-Test-split evaluations binned by the frozen geometry edges.
+### Definition of the validation threshold
 
-| Bin | Frenet completion | LiDAR completion | n per condition |
-|---|---:|---:|---:|
-| Length 0 (shortest) | 0.900 | 0.833 | 30 |
-| Length 1 | 0.829 | 0.829 | 35 |
-| Length 2 (longest) | 0.916 | 0.842 | 95 |
-| Curvature 0 (mildest) | 0.930 | 0.830 | 100 |
-| Curvature 1 | 0.840 | 0.840 | 25 |
-| Curvature 2 (tightest) | 0.829 | 0.857 | 35 |
+First attainment is the first of three consecutive evaluations with at least
+**12/16 completed validation circuits** and median progress at least 0.95.
+Once 12 circuits complete, median progress already reaches 1.0, so the second
+condition is redundant and gives no guarantee about the other four circuits.
+The historical rule is retained as specified.
 
-![Circuit geometry](figures/experiment_2/circuit_geometry.png)
+Evaluations are 50k interactions apart. Confirmation is the third qualifying
+checkpoint, 100k after first attainment. Training continues to 1M regardless.
+The late window is `0.8B < t <= B`: **850k, 900k, 950k and 1M**, on the same
+16 validation circuits. These changing policies are not four independent
+replicates of a frozen policy.
 
-**Analysis.** **Circuit geometry does not predict failure.** Completion is
-between 0.83 and 0.93 in every length bin and every curvature bin, for both
-conditions, and the longest circuits are completed slightly *more* often than
-the middle ones. The scatter plot shows the same thing directly: completions
-(the row of markers at 1.0) run the full range of lengths and curvatures, and
-crashes are sprinkled underneath them at every geometry rather than clustering
-at one end.
+| Root | Frenet first | Frenet confirmation | LiDAR first | LiDAR confirmation |
+|---:|---:|---:|---:|---:|
+| 0 | 150k | 250k | 100k | 200k |
+| 1 | 650k | 750k | 100k | 200k |
+| 2 | 200k | 300k | 150k | 250k |
+| 3 | 100k | 200k | 150k | 250k |
+| 4 | 200k | 300k | 100k | 200k |
+| 5 | 100k | 200k | 100k | 200k |
+| 6 | 100k | 200k | 100k | 200k |
+| 7 | 100k | 200k | 200k | 300k |
+| 8 | 150k | 250k | 50k | 150k |
+| 9 | 100k | 200k | 50k | 150k |
 
-The bins do contain the only hint of a systematic observation difference in this
-document, and it points in both directions at once. Frenet leads by 0.10 in the
-mildest-curvature bin (0.930 against 0.830, the largest n at 100) and trails by
-0.028 in the tightest (0.829 against 0.857). A tempting story is that Frenet's
-preview curvature helps most where there is little curvature to preview and
-LiDAR's direct range sensing helps in tight corners — but with 35 evaluations in
-the tightest bin and one outlier root per condition already established, this is
-below the resolution of the experiment. It is recorded as an observation, not
-claimed as a finding.
+| Measure | Frenet | LiDAR |
+|---|---:|---:|
+| Roots attaining threshold | 10/10 | 10/10 |
+| Mean first interactions | 185k | 110k |
+| Median first interactions | 125k | 100k |
+| Mean confirmation interactions | 285k | 210k |
+| Mean episodes to first | 480 | 281 |
+| Mean episodes to confirmation | 663 | 460 |
+| Mean training seconds to first | 57.7 | 37.9 |
+| Mean training seconds to confirmation | 86.5 | 69.7 |
+| Late validation completion | 0.9203 | 0.9750 |
+| Late validation return | 210.80 | 228.13 |
 
-The Track-variation hypothesis expected substantial variation with held-out
-geometry. What the data shows instead is that variation is substantial **across
-roots** and small **across geometry**. Which circuit you draw matters far less
-than which random seed trained the policy.
+No runs are censored. Training time means recorded collection plus optimization,
+excluding evaluation and persistence; it is not end-to-end elapsed time to
+confirmation. Episodes count completed training episodes by the relevant
+boundary across all workers, and therefore vary with episode length.
 
-# Result 8 — Optimization diagnostics
+Frenet's slowest root requires **65% of the budget to first qualify and 75% to
+confirm**. Nine Frenet roots first qualify by 200k; every LiDAR root does so.
+The mean Frenet-minus-LiDAR first-attainment difference is **+75k interactions**,
+with paired interval **[-5k, +195k]**. The training-time difference is **+19.8 s**,
+with interval **[-5.6, +56.3] s**. LiDAR is earlier on average, but this threshold
+comparison remains uncertain and is sensitive to Frenet root 1.
 
-Means over the final tenth of each run's updates.
+![Validation learning curves across training roots](figures/experiment_2/learning_curves.png)
 
-| Observation | Explained variance | Approx. KL | Clip fraction | Actor grad norm | log σ |
-|---|---:|---:|---:|---:|---:|
-| Frenet | +0.187 | 0.0056 | 0.068 | 1.030 | −0.004 |
-| LiDAR | +0.208 | 0.0061 | 0.075 | 1.083 | −0.003 |
+*Lines are root means; shaded bands are ± one sample SD across roots, not
+confidence intervals. A progress band extending above one reflects this
+symmetric plotting convention, not more than one completed lap.*
 
-![Optimization diagnostics](figures/experiment_2/optimization_diagnostics.png)
+### Common-budget validation outcomes
 
-**Analysis.** The two conditions are optimizing essentially identically: every
-diagnostic matches to within a few percent. Whatever separates Frenet from LiDAR
-in this experiment, it is not visible in the optimizer's behaviour.
+These are the same fixed 16 validation circuits at each checkpoint. The 1M
+column is therefore different from the 32-circuit final test result.
 
-Two carry-overs from Experiment 1 are confirmed here. **PPO again drives its
-exploration noise up to the configured ceiling** — log σ of −0.003 against an
-initial −0.5 and an upper clamp of 0.0, so the scale rose from σ ≈ 0.607 to
-σ ≈ 1.0 and stopped only because the configuration stopped it. This is now
-observed under a completely different training distribution, which strengthens
-the reading that it is a property of the algorithm rather than of one task — and
-it carries the same caveat as in Experiment 1: **both conditions here are
-reported at the edge of their policy class, not at an interior optimum.** Since
-the ceiling binds equally on Frenet and LiDAR, it does not threaten the
-observation comparison, which is a within-root paired contrast; it limits what
-can be said about PPO's absolute performance.
+| Interactions | Frenet return | LiDAR return | Frenet completion | LiDAR completion |
+|---:|---:|---:|---:|---:|
+| 250k | 210.15 | 235.37 | 0.8500 | 0.9938 |
+| 500k | 212.00 | 209.98 | 0.8938 | 0.9000 |
+| 750k | 186.26 | 222.98 | 0.7813 | 0.9813 |
+| 1M | 209.24 | 230.95 | 0.9125 | 0.9813 |
 
-**Explained variance is higher here than in Experiment 1** — 0.19–0.21 against
-0.09–0.13 for the same algorithm and actor — despite the task being harder. The
-plausible reason is that training across an unbounded stream of circuits gives
-the critic a genuinely varied state distribution to fit, where a single circuit
-offers a narrow one. It remains low in absolute terms, and PPO drives unseen
-circuits at 0.89 completion with it, which reinforces Experiment 1's conclusion
-that critic accuracy is not the binding constraint on this task.
+There is rapid early improvement, followed by meaningful regressions and
+recoveries. LiDAR's strong 250k score does not persist at every later boundary;
+Frenet drops substantially at 750k. The curves do not justify describing the
+remaining budget as an entirely flat plateau or declaring permanent convergence.
 
-Approximate KL of 0.0056–0.0061 stays well below the 0.02 early-stop target and
-clip fractions of 7–8% mean the ratio bound is active but not saturating, so the
-PPO configuration selected before the experiments is behaving as intended under
-multi-circuit training too.
+Averaging over the whole recorded validation curve, the normalized return area
+is **201.37 for Frenet** and **220.97 for LiDAR**. It is the trapezoidal area
+from the first to last recorded evaluation divided by that interaction span,
+not cumulative training reward. The paired Frenet-minus-LiDAR difference is
+**-19.59**, with interval **[-25.73, -13.00]**. This supports a LiDAR advantage
+in performance across training, beyond the noisier threshold timing comparison.
 
-# Verdict on the hypotheses
+Late validation completion favours LiDAR by **5.47 percentage points**; the
+Frenet-minus-LiDAR interval is **[-11.09, -0.16] percentage points**. Late return
+favours LiDAR by **17.34**, with interval **[10.44, 24.10]** in that direction.
+The completion interval only narrowly excludes zero and is a secondary,
+exploratory comparison. It also describes validation performance, not the
+uncertain final test completion difference.
 
-**Generalization — confirmed in its strong form.** Test completion of 0.894
-(Frenet) and 0.838 (LiDAR) on 32 unseen circuits, against training-reference
-values of 0.887 and 0.850. High absolute performance *and* a gap indistinguishable
-from zero, which is exactly the pairing the protocol demanded before calling
-generalization successful.
+### Was one million interactions enough?
 
-**Observation information — not supported, and partly reversed.** Frenet was
-expected to learn faster and possibly perform better. On 160 paired test
-circuits the difference is +0.056 completion (SE 0.038) and −0.63 return (SE
-7.76), with per-root swings ten times larger. On convergence LiDAR is if
-anything the more consistent, at 100k–150k against Frenet's 100k–650k. The
-advantages Frenet does show are a six-fold lower crash rate and 17% better
-environment throughput — neither of which is the learning advantage the
-hypothesis predicted.
+**It was sufficient for all roots to qualify and for strong final test driving.**
+The revised allocation provides ten roots per observation at a total of 20M
+training interactions, doubling the number of roots relative to the earlier
+five-root, 2M-per-run allocation without increasing total training interactions.
+This gives a broader view of training variation at the chosen budget.
 
-**Track variation — not supported as stated; the variation is elsewhere.**
-Completion sits between 0.83 and 0.93 across every length and curvature bin in
-both conditions. The substantial variation the hypothesis anticipated from
-geometry appears instead across training roots, where a single condition ranges
-from 0.438 to 1.000.
+It does not prove that 1M is optimal or that 250k would be equally good. One
+Frenet root confirms only at 750k, and validation regressions occur after early
+attainment in both conditions. The results at 1M cannot be causally attributed
+to shortening the earlier runs: the report compares observations at 1M and
+uses their actual checkpoint histories, rather than treating historical
+2M endpoints as an independent budget experiment.
 
-# Limitations
+## 6. Learned driving controls
 
-- Five roots per condition, and each condition has one outlier root. Every
-  comparison of means here is decided by those two roots more than by the
-  factor under study; the intervals say so and should be believed.
-- The test split is 32 circuits from one frozen generator. "Unseen circuit"
-  means unseen *seed*, not unseen *generator* — no conclusion here transfers to
-  circuits of a different family, and the generator produces circuits that are
-  curved almost everywhere.
-- LiDAR is feed-forward with no frame stacking. Its partial observability is a
-  deliberate part of the condition, so this is a comparison of *these two
-  observations as specified*, not of Frenet parameterization against range
-  sensing in general.
-- The two conditions have unequal actor parameter counts (4,676 against 5,508)
-  because the input dimensions differ. The alternative was unequal hidden
-  widths, which would confound more.
-- The convergence rule is measured on the validation split, and Frenet's
-  validation performance is anomalously below both its training-reference and
-  test values. Convergence comparisons between the conditions rest on that
-  slightly unlucky sample.
-- Both conditions plateau within roughly 10% of the budget, so this experiment
-  measures where PPO lands, not how it gets there.
-- Both conditions end with PPO's learned exploration scale at its configured
-  upper clamp, so the absolute performance reported here is that of a capped
-  policy class. The cap binds equally on Frenet and LiDAR and so does not affect
-  the paired observation contrast.
+### All-root, all-circuit measurement
 
+All **640 final test trajectories** are retained: 32 circuits × ten roots × two
+observations. Failures contribute the portion observed before crashing. Metrics
+weight steps equally within each circuit, circuits equally within each root,
+and roots equally across a condition. This prevents long drives from silently
+dominating the comparison. Mean coverage is 0.990 for Frenet and 0.998 for LiDAR.
 
-# TODO: 
-I am a bit more confident about these results than those from Experiment 1. 
-My doubts about these results:
-- Should have we reduced the budget? In most of the cases the algorithms do not need it.
-- Should have we used more roots? Maybe it would give more info for the comparison
-- Again, I would like to see some extra data about the controls that the algorithm learns, as I said for Experiment 1.
+Braking means negative throttle request; near-zero throttle means absolute value
+`<= 0.05`. Steering reversals discard requests with magnitude `<= 0.05` and count
+sign changes among the remaining requests per simulated second. Mean steering
+change is the absolute difference between adjacent requests. Near saturation
+means requested magnitude `>= 0.9`. All actions are normalized to `[-1, 1]`.
+
+Quantiles and SD below summarize each drive first, then average through circuits
+and roots. They are not statistics of one pooled stream. Speed includes launch.
+
+| Final test control metric | Frenet | LiDAR |
+|---|---:|---:|
+| Mean speed (m/s) | 17.92 | 19.66 |
+| Speed q10 / median / q90 (m/s) | 13.28 / 18.87 / 21.97 | 15.22 / 20.38 / 24.24 |
+| Braking fraction | 0.317 | 0.307 |
+| Near-zero throttle fraction | 0.055 | 0.056 |
+| Throttle q10 / median / q90 | -0.44 / 0.40 / 0.85 | -0.44 / 0.38 / 0.94 |
+| Within-drive throttle SD | 0.49 | 0.52 |
+| Mean absolute steering-request change | 0.589 | 0.345 |
+| Steering-request reversals/s | 13.61 | 8.13 |
+| Near-saturated steering fraction | 0.127 | 0.160 |
+
+![All-root final test control summaries](figures/experiment_2/control_summaries.png)
+
+**Both representations learn substantial acceleration/braking variation.**
+Roughly 31% of steps request braking; only about 5.5% request near-zero throttle.
+Negative lower quantiles and strongly positive upper quantiles rule out a
+single constant-throttle description. They do not prove that braking occurs
+at the best positions or that each policy learns an optimal speed schedule.
+
+LiDAR maintains higher speeds across the reported speed quantiles and has
+fewer steering-request reversals and smaller adjacent changes on average.
+Its near-saturation fraction is nevertheless higher. Large sustained requests
+and rapid alternating requests are different behaviours; a saturation count
+alone does not measure control smoothness. These associations accompany the
+lap-time advantage, but do not identify its cause.
+
+### Position-dependent examples and curvature
+
+![Signed controls and XY trajectories for root 0 on test circuit 0](figures/experiment_2/control_traces.png)
+
+*The example is fixed root 0, test circuit 0, at 1M interactions; both complete.
+Grey shading marks curved portions along the Frenet reference trace. Pre-action
+speed and requests are aligned with pre-action distance by shifting the logged
+post-action progress. Paths illustrate the driving line without measuring its
+optimality or distance to the boundaries.*
+
+In this example, Frenet stays near 18 m/s after launch, while LiDAR repeatedly
+builds speed into the mid-to-high twenties and decelerates around corner
+sequences. LiDAR shows clear positive-throttle and braking phases around those
+speed changes. Frenet's relatively steady speed still accompanies rapidly
+varying actions. This is an illustration of how speed scheduling differs,
+not proof that every root uses the same strategy.
+
+The normalized request is not the physical wheel angle: steering rate is
+limited, and available tire grip can further reduce effective turning. Request
+oscillations cannot be equated directly with wheel oscillations, tire slip,
+or speed loss. Deterministic evaluation samples no Gaussian noise, so these
+patterns cannot be described as evaluation exploration noise.
+
+![Final test controls grouped into straight and curved portions](figures/experiment_2/curvature_controls.png)
+
+Straight samples use `|curvature| <= 1e-8`. Curved groups use each circuit's
+unique positive centerline quartile edges below its maximum. The group labels
+are relative to each circuit, not identical curvature ranges across circuits.
+Within each group, circuit means are averaged inside each root before roots
+are compared.
+
+Mean speeds for Frenet/LiDAR are **17.87/18.89 m/s on straights**,
+**19.44/21.26 in curve group 1**, and **16.34/19.00 in curve group 2**. LiDAR's
+speed advantage appears across the visited groups. Frenet has 319 contributing
+drives in curve group 2 because one crash precedes it; other groups and LiDAR
+have 320. Straight averages include launch and corner approaches, so they
+cannot by themselves test whether a policy anticipates corners. The signed
+traces show the sequence of actions before, within and after curves.
+
+## 7. Computational cost and optimizer behaviour
+
+All runs execute sequentially on the same experiment machine, using CPU
+PyTorch, eight environment workers and one Torch intra/inter-op thread.
+The twenty recorded end-to-end durations sum to **126.7 minutes**.
+
+| Full 1M-budget cost, mean per run | Frenet | LiDAR |
+|---|---:|---:|
+| Collection (min) | 3.35 | 3.83 |
+| Optimization (min) | 1.46 | 1.43 |
+| Evaluation (min) | 0.90 | 1.33 |
+| End-to-end (min) | 5.88 | 6.79 |
+| Collection interactions/s | 4,980 | 4,359 |
+
+LiDAR costs an additional **54.5 s per full run**, with paired interval
+**[46.3, 62.8] s**, or about 15.4% of Frenet's mean end-to-end duration.
+Collection throughput is about 12.5% lower. Both collection and evaluation
+account for substantial portions of the difference; measured optimization
+times are close. Additional ray queries are consistent with that pattern,
+but these timings also include differing episode behaviour and orchestration,
+so they do not isolate the cost of the sensor implementation alone.
+
+LiDAR's extra end-to-end cost does not contradict its earlier average first
+attainment. Full-budget duration, training-only time to first attainment, and
+the later cost of confirming a streak are separate quantities. End-to-end time
+also includes persistence and overhead not listed separately in the table.
+
+![Recorded threshold and resource costs](figures/experiment_2/convergence_resources.png)
+
+The peak-memory recorder reports a main-process lifetime high-water mark,
+excluding worker processes and potentially carrying over earlier sequential
+runs. These numbers cannot identify the total memory cost of either observation
+or attribute a difference to wider observation buffers.
+
+### Final optimization diagnostics
+
+Each root is averaged over its final tenth of optimizer updates, then roots
+are weighted equally.
+
+| Diagnostic | Frenet | LiDAR |
+|---|---:|---:|
+| Critic explained variance | 0.164 | 0.091 |
+| Actor gradient norm | 0.788 | 0.914 |
+| Approximate KL | 0.0053 | 0.0057 |
+| PPO clip fraction | 0.064 | 0.070 |
+| Log sigma, throttle / steering | -0.014 / -0.003 | -0.001 / -0.002 |
+
+![Optimizer diagnostics](figures/experiment_2/optimization_diagnostics.png)
+
+Similar average KL and clip fractions do not establish identical optimization
+trajectories. Explained variance is lower with LiDAR despite its better return;
+this coexistence does not prove that critic accuracy is unimportant or that the
+critic cannot constrain learning. Values are compared against the logged
+training targets, and GAE uses those values in estimating advantages.
+
+Both conditions approach the log-scale ceiling of zero, corresponding to a
+pre-squash Gaussian scale near one. That is a property of the configured
+training distribution, not measured bounded-action noise or proof of a
+nonoptimal solution. Shared bounds need not have identical effects across
+observations. A controlled comparison would be needed to attribute the return
+difference, plateau behaviour or steering requests to the dispersion ceiling.
+
+## 8. Answers and limitations
+
+**Generalization is supported within the frozen generator.** Completion above
+98% in both conditions, with no root below 30/32, demonstrates useful unseen-seed
+performance. Comparable training-reference outcomes supply context, but do not
+prove zero generalization error. This says nothing about different circuit
+families, sensor errors, altered vehicle dynamics or real racing.
+
+**The expected Frenet advantage is not supported.** The measured direction
+favours LiDAR for final return, matched completed-lap speed, mean validation
+curve performance and late validation stability. First attainment is earlier
+on average but uncertain in the paired interval. Final test completion is near
+the ceiling for both observations and its small difference remains unresolved.
+The experiment compares these particular observations and equal hidden widths,
+not all forms of range sensing against all track-relative encodings.
+
+**Ten roots make the comparison more informative without eliminating uncertainty.**
+They expose the consistency of the return advantage and the exceptions to it.
+They do not turn 32 shared test circuits into hundreds of independent policy
+replications. Rare failures remain difficult to compare, and the test set was
+reused from the earlier study. The bootstrap is conditional on that circuit set.
+
+**The shorter budget is sufficient for the reported outcome, not proven minimal.**
+All roots qualify within 1M, but one confirms only at 750k and later validation
+regressions remain visible. A permanent-convergence claim or retrospectively
+selected earlier stopping point would exceed the evidence.
+
+**Controls supply behavioural evidence, not a causal explanation.** Both
+observations lead to substantial throttle/brake modulation. LiDAR combines
+higher speeds with fewer steering-request reversals on average; Frenet can
+show relatively steady speed despite rapidly varying requests. The simulator's
+rate and grip limits mediate their physical effects. Testing optimal braking,
+controller smoothness or the cause of the return gap requires more than these
+summary associations and selected traces.
+
+Further limits are the shared medium-based PPO recipe, unequal input-layer
+parameter counts in both actor and critic, partial observability without memory,
+retained timeout bootstrapping, and deterministic canonical-start evaluation.
+The conclusions concern the final deterministic policies and should not be
+presented as measurements of their stochastic training behaviour at deployment.
+
+## 9. Evidence and reproducibility
+
+The primary raw directory is
+`results/reported_experiments/experiment_2_revised/`; the processed directory is
+`results/analysis/reported_experiments/experiment_2_revised/`. Historical
+`experiment_2/` runs are excluded. Recorded training metadata identifies clean
+source commit `b60605bb9d3908eb99904446f2e036ab84dc431c`, with per-run
+configuration, dependency freeze and hardware/execution context in the inventory.
+
+- [Protocol](EXPERIMENT.md), [split specification](../tracks/experiment_2_splits.json), and [results index](../results/README.md).
+- [Analysis manifest](../results/analysis/reported_experiments/experiment_2_revised/analysis_manifest.json): input checksums, 10,000-resample seed-0 bootstrap, fixed late window, all-test control retention and illustrative circuit choice.
+- [Run inventory](../results/analysis/reported_experiments/experiment_2_revised/run_inventory.json), [per-root summaries](../results/analysis/reported_experiments/experiment_2_revised/run_summaries.csv), and [paired contrasts](../results/analysis/reported_experiments/experiment_2_revised/paired_summaries.csv).
+- [Common-budget validation outcomes](../results/analysis/reported_experiments/experiment_2_revised/common_budget_outcomes.csv), [final split summaries](../results/analysis/reported_experiments/experiment_2_revised/final_split_summaries.csv), and [root-level generalization gaps](../results/analysis/reported_experiments/experiment_2_revised/generalization_gaps.csv).
+- [Matched successful-lap differences](tables/experiment_2_matched_laps.csv): circuit identities, root differences and input run checksums. Differences come from final test `evaluation_outcomes.json`, restricted to circuits completed by both observations in each root; their interval resamples the ten root means 10,000 times with NumPy `default_rng(0)` and percentile endpoints.
+- [Final controls per circuit](../results/analysis/reported_experiments/experiment_2_revised/circuit_controls.csv), [controls per root](../results/analysis/reported_experiments/experiment_2_revised/root_controls.csv), and [geometry-stratified outcomes](../results/analysis/reported_experiments/experiment_2_revised/geometry_strata.csv).
+
+Report figures are retained under `docs/figures/experiment_2/`; all eight use
+the revised twenty-run analysis. The threshold figure's colors and legend
+layout are adjusted for consistency across panels. The report can be read independently of
+the older results, and its figures remain viewable without the local raw data.

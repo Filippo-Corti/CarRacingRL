@@ -2254,3 +2254,44 @@ and the two final analysis directories under
 `results/analysis/reported_experiments/`.
 
 **Commit**: `analysis: compile final experiment evidence [ai]`.
+
+## 2026-09-15 - Rewrite the final experiment reports
+
+**Task**: Analyze the combined Experiment 1 and revised Experiment 2 from the
+ground up, answering the scientific questions and corrections in `TODO.md`.
+
+**Result**: Replaced both reports with standalone accounts of the design,
+root-level uncertainty, final outcomes, size/algorithm comparisons, common-budget
+learning, threshold attainment and confirmation, late stability, controls,
+generalization, resource costs and limitations. Experiment 1 includes all 60
+runs and explains tiny PPO's successful driving alongside the tiny REINFORCE
+and A2C failures. Experiment 2 includes only the 20 revised runs and separates
+LiDAR's return/lap-time advantage from the uncertain completion difference.
+Refreshed 17 figures, including consistent threshold-panel colors and legends.
+
+The report audit found a 100-second cutoff in the analysis helper where the
+Experiment 1 protocol specifies 34 seconds. Recomputed all 60 roots from saved
+evaluations: REINFORCE-large root 3 first attains at 350k rather than 300k, and
+A2C-large root 4 at 700k rather than 550k. A supporting CSV and corrected report
+figure retain first/confirmation interactions, recorded training durations,
+episode counts and source checksums. The analysis helper, processed bundle and
+training semantics were not modified. Documented this reproduction caveat in
+the report and TODO. A second supporting table records Experiment 2's 313
+mutually completed circuit pairs aggregated to ten root-level lap differences;
+LiDAR is faster by 2.21 seconds, with a seed-0 root-bootstrap interval of
+[0.61, 3.72] seconds.
+
+**Validation**: Cross-checked report outcome, paired-contrast, common-budget,
+threshold, control and resource tables against their CSV/JSON inputs; recomputed
+thresholds and matched-lap differences from individual evaluations. Verified
+60 and 20 complete runs, all-root final control coverage, conditional lap
+denominators, bootstrap conventions and geometry-stratum definitions. Inspected
+the main learning, outcome, control and corrected threshold figures. All report
+links and Markdown table structures resolve; diff whitespace checks pass.
+No application code or training configuration changed.
+
+**Files**: `docs/EXPERIMENT_1.md`, `docs/EXPERIMENT_2.md`, both report figure
+directories, `docs/tables/experiment_1_thresholds.csv`,
+`docs/tables/experiment_2_matched_laps.csv`, `TODO.md`, `docs/DIARY.md`.
+
+**Commit**: `docs: rewrite final experiment analyses [ai]`.

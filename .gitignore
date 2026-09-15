@@ -50,3 +50,8 @@ tensorboard/
 *.ckpt
 *.pt
 *.pth
+
+
+results/analysis/**/*.json
+results/analysis/**/*.csv
+

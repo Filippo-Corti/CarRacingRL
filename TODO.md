@@ -44,8 +44,28 @@ This section supersedes conflicting instructions in the historical handoff below
 - [x] Reduced rehearsals, final matrix dry runs, settings/dependency/code freeze.
 - [x] Preserve original-data checksums; complete 15 tiny and 20 Experiment 2 runs.
 - [x] Verify results and regenerate combined Experiment 1/new-only Experiment 2.
-- [ ] Write both reports and figures; commit separate concerns on main and
+- [x] Write both reports and figures; commit separate concerns on main and
   record validation/results with commit references in `docs/DIARY.md`.
+
+### Reporting completion — 2026-09-15
+
+Both standalone reports now analyze the complete 60-run Experiment 1 and the
+new-only 20-run Experiment 2, with refreshed figures and all-root control data.
+The reports answer the capacity, common-budget, attainment/confirmation,
+late-stability, replication, generalization and learned-control questions below.
+
+The reporting audit found that `src/utils/analysis.py` uses a 100-second lap
+cutoff when constructing Experiment 1 threshold inputs, although the protocol
+specifies 34 seconds. The report recomputes the 34-second streaks directly from
+saved evaluations; two roots' attainment boundaries change. The corrected
+60-root table is `docs/tables/experiment_1_thresholds.csv`, and the report's
+threshold figure uses it. The processed bundle and analysis helper retain their
+existing values, so regenerating them without correcting the helper will not
+reproduce the report's corrected threshold costs. Training is unaffected.
+
+Experiment 2 additionally includes a matched-successful-lap check, with circuit
+identities and source checksums in `docs/tables/experiment_2_matched_laps.csv`.
+See the report evidence sections and diary for validation and provenance.
 
 ---
 
