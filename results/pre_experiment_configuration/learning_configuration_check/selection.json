@@ -1,0 +1,226 @@
+{
+  "grid": [
+    {
+      "algorithm": "reinforce",
+      "actor_rate": 0.0001,
+      "critic_rate": null,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 0,
+      "mean_progress": 0.07029005597431111,
+      "mean_return": -4.275784854940344
+    },
+    {
+      "algorithm": "reinforce",
+      "actor_rate": 0.0003,
+      "critic_rate": null,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 0,
+      "mean_progress": 0.16916153014754898,
+      "mean_return": 4.770908734947169
+    },
+    {
+      "algorithm": "reinforce",
+      "actor_rate": 0.001,
+      "critic_rate": null,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 2,
+      "mean_progress": 0.8936355833480021,
+      "mean_return": 152.6669343454751
+    },
+    {
+      "algorithm": "a2c",
+      "actor_rate": 0.0001,
+      "critic_rate": 0.0003,
+      "allowance": 750000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 0,
+      "mean_progress": 0.2651911558368662,
+      "mean_return": 9.536881089569038
+    },
+    {
+      "algorithm": "a2c",
+      "actor_rate": 0.0003,
+      "critic_rate": 0.001,
+      "allowance": 750000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 0,
+      "mean_progress": 0.27375564614601117,
+      "mean_return": 14.096585103880884
+    },
+    {
+      "algorithm": "a2c",
+      "actor_rate": 0.0003,
+      "critic_rate": 0.003,
+      "allowance": 750000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 0,
+      "mean_progress": 0.5197920004744677,
+      "mean_return": 32.76785273149945
+    },
+    {
+      "algorithm": "a2c",
+      "actor_rate": 0.0003,
+      "critic_rate": 0.01,
+      "allowance": 750000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 0,
+      "mean_progress": 0.5816993018919568,
+      "mean_return": 37.22939967574519
+    },
+    {
+      "algorithm": "a2c",
+      "actor_rate": 0.001,
+      "critic_rate": 0.001,
+      "allowance": 750000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 2,
+      "mean_progress": 0.8350940143051551,
+      "mean_return": 150.51414648771444
+    },
+    {
+      "algorithm": "a2c",
+      "actor_rate": 0.001,
+      "critic_rate": 0.003,
+      "allowance": 750000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 222.77151978574992
+    },
+    {
+      "algorithm": "a2c",
+      "actor_rate": 0.001,
+      "critic_rate": 0.01,
+      "allowance": 750000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 218.49797864200022
+    },
+    {
+      "algorithm": "ppo",
+      "actor_rate": 0.0001,
+      "critic_rate": 0.0003,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 225.5207379654603
+    },
+    {
+      "algorithm": "ppo",
+      "actor_rate": 0.0003,
+      "critic_rate": 0.001,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 223.77083083815796
+    },
+    {
+      "algorithm": "ppo",
+      "actor_rate": 0.0003,
+      "critic_rate": 0.003,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 227.18777760316027
+    },
+    {
+      "algorithm": "ppo",
+      "actor_rate": 0.0003,
+      "critic_rate": 0.01,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 231.00050711534993
+    },
+    {
+      "algorithm": "ppo",
+      "actor_rate": 0.001,
+      "critic_rate": 0.001,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 207.5694314501194
+    },
+    {
+      "algorithm": "ppo",
+      "actor_rate": 0.001,
+      "critic_rate": 0.003,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 225.82647971965582
+    },
+    {
+      "algorithm": "ppo",
+      "actor_rate": 0.001,
+      "critic_rate": 0.01,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 2,
+      "mean_progress": 0.6859229536823866,
+      "mean_return": 148.50024320287977
+    }
+  ],
+  "selected": {
+    "reinforce": {
+      "algorithm": "reinforce",
+      "actor_rate": 0.001,
+      "critic_rate": null,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 2,
+      "mean_progress": 0.8936355833480021,
+      "mean_return": 152.6669343454751
+    },
+    "a2c": {
+      "algorithm": "a2c",
+      "actor_rate": 0.001,
+      "critic_rate": 0.003,
+      "allowance": 750000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 222.77151978574992
+    },
+    "ppo": {
+      "algorithm": "ppo",
+      "actor_rate": 0.0003,
+      "critic_rate": 0.01,
+      "allowance": 250000,
+      "roots": 3,
+      "missing_roots": "",
+      "completed_laps": 3,
+      "mean_progress": 1.0,
+      "mean_return": 231.00050711534993
+    }
+  }
+}

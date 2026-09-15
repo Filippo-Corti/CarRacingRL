@@ -46,7 +46,7 @@ experiments/notebooks/output/
 videos/
 wandb/
 tensorboard/
-results/
+#results/
 *.ckpt
 *.pt
 *.pth

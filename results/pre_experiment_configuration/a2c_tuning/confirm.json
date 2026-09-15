@@ -1,0 +1,41 @@
+[
+  {
+    "name": "a2c-0.001-0.01-r2048",
+    "actor_rate": 0.001,
+    "critic_rate": 0.01,
+    "rollout": 2048,
+    "critic_steps_per_2m": 976,
+    "roots": 3,
+    "laps": 3,
+    "mean_progress": 1.0,
+    "mean_return": 218.49797864200022,
+    "explained_variance": -0.0197888046503067,
+    "prediction_over_target_spread": 0.08956737723658012
+  },
+  {
+    "name": "a2c-0.0003-0.01-r512",
+    "actor_rate": 0.0003,
+    "critic_rate": 0.01,
+    "rollout": 512,
+    "critic_steps_per_2m": 3906,
+    "roots": 3,
+    "laps": 3,
+    "mean_progress": 1.0,
+    "mean_return": 231.53828696818314,
+    "explained_variance": -0.07543343206246694,
+    "prediction_over_target_spread": 0.38793882277406316
+  },
+  {
+    "name": "a2c-0.001-0.01-r512",
+    "actor_rate": 0.001,
+    "critic_rate": 0.01,
+    "rollout": 512,
+    "critic_steps_per_2m": 3906,
+    "roots": 3,
+    "laps": 2,
+    "mean_progress": 0.91082388334543,
+    "mean_return": 161.82160949033081,
+    "explained_variance": -0.2513627946376801,
+    "prediction_over_target_spread": 0.3864805064667211
+  }
+]

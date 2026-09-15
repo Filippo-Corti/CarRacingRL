@@ -1,0 +1,93 @@
+[
+  {
+    "name": "a2c-0.0003-0.01-r2048",
+    "actor_rate": 0.0003,
+    "critic_rate": 0.01,
+    "rollout": 2048,
+    "critic_steps_per_2m": 976,
+    "roots": 1,
+    "laps": 0,
+    "mean_progress": 0.551148681624401,
+    "mean_return": 35.1332542373631,
+    "explained_variance": 0.0738188534975052,
+    "prediction_over_target_spread": 0.11344665667591192
+  },
+  {
+    "name": "a2c-0.001-0.01-r2048",
+    "actor_rate": 0.001,
+    "critic_rate": 0.01,
+    "rollout": 2048,
+    "critic_steps_per_2m": 976,
+    "roots": 1,
+    "laps": 1,
+    "mean_progress": 1.0,
+    "mean_return": 220.78237068492092,
+    "explained_variance": -0.06393704414367676,
+    "prediction_over_target_spread": 0.21607527179336644
+  },
+  {
+    "name": "a2c-0.0003-0.01-r512",
+    "actor_rate": 0.0003,
+    "critic_rate": 0.01,
+    "rollout": 512,
+    "critic_steps_per_2m": 3906,
+    "roots": 1,
+    "laps": 1,
+    "mean_progress": 1.0,
+    "mean_return": 229.01871663197983,
+    "explained_variance": 0.06958803832530976,
+    "prediction_over_target_spread": 0.12227596663692948
+  },
+  {
+    "name": "a2c-0.001-0.01-r512",
+    "actor_rate": 0.001,
+    "critic_rate": 0.01,
+    "rollout": 512,
+    "critic_steps_per_2m": 3906,
+    "roots": 1,
+    "laps": 1,
+    "mean_progress": 1.0,
+    "mean_return": 231.94332442499035,
+    "explained_variance": -0.012803226709365845,
+    "prediction_over_target_spread": 0.04335974457179361
+  },
+  {
+    "name": "a2c-0.0003-0.03-r2048",
+    "actor_rate": 0.0003,
+    "critic_rate": 0.03,
+    "rollout": 2048,
+    "critic_steps_per_2m": 976,
+    "roots": 1,
+    "laps": 0,
+    "mean_progress": 0.5528854922186704,
+    "mean_return": 34.93078037184074,
+    "explained_variance": -0.03698771297931671,
+    "prediction_over_target_spread": 0.6685740074878173
+  },
+  {
+    "name": "a2c-0.001-0.03-r512",
+    "actor_rate": 0.001,
+    "critic_rate": 0.03,
+    "rollout": 512,
+    "critic_steps_per_2m": 3906,
+    "roots": 1,
+    "laps": 1,
+    "mean_progress": 1.0,
+    "mean_return": 230.5348582905309,
+    "explained_variance": -0.13540296852588654,
+    "prediction_over_target_spread": 0.30477109618829956
+  },
+  {
+    "name": "a2c-0.0003-0.01-r256",
+    "actor_rate": 0.0003,
+    "critic_rate": 0.01,
+    "rollout": 256,
+    "critic_steps_per_2m": 7812,
+    "roots": 1,
+    "laps": 1,
+    "mean_progress": 1.0,
+    "mean_return": 230.52364556723018,
+    "explained_variance": -0.05266383588314057,
+    "prediction_over_target_spread": 0.05489721978728297
+  }
+]
