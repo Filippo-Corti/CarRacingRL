@@ -2132,3 +2132,26 @@ sides rather than only below.
 `experiments/notebooks/a2c.py`.
 
 **Commit**: `fix: widen the learning-rate grid so A2C can learn [ai]`.
+
+## 2026-09-15 — Experiment follow-up handoff
+
+**Task**: Record the experiment review and proposed follow-up in a self-contained
+`TODO.md` that another agent can use without the conversation.
+
+**Result**: Documented the factual and interpretive corrections, the distinction
+between original and corrected timeout targets, the proposed tiny-actor
+extension with Experiment 1's existing settings, and the Experiment 2-only
+rerun with proposed ten paired roots at one million interactions. The handoff
+includes convergence and control analyses, result-preservation requirements,
+implementation locations, focused validation, estimated runtime, and a fallback
+that protects the user's final presentation day. All implementation and
+data-dependent work remains pending.
+
+**Validation**: Checked the handoff against the current configurations, target
+computation, matrix runners, analysis and trajectory-retention code. Checked
+local Markdown links and diff whitespace. The existing uncommitted edits to
+both experiment reports were preserved.
+
+**Files**: `TODO.md`, `docs/DIARY.md`.
+
+**Commit**: `docs: add experiment follow-up handoff [ai]`.
