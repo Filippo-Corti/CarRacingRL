@@ -32,18 +32,18 @@ This section supersedes conflicting instructions in the historical handoff below
 
 ## Approved implementation and validation checklist
 
-- [ ] Configs/matrices and safe result handling: `src/configs/`, experiment
+- [x] Configs/matrices and safe result handling: `src/configs/`, experiment
   runners, `experiments/matrix.py`, focused tests.
-- [ ] Final-test trajectory retention: `experiments/train.py`, logging config
+- [x] Final-test trajectory retention: `experiments/train.py`, logging config
   and focused tests, with original training behaviour preserved.
-- [ ] Root uncertainty, convergence, size/algorithm panels and controls:
+- [x] Root uncertainty, convergence, size/algorithm panels and controls:
   analysis/plotting utilities, `experiments/analyze_results.py`, focused tests.
-- [ ] Protocol/notebook consistency and factual corrections: README, protocol,
+- [x] Protocol/notebook consistency and factual corrections: README, protocol,
   MDP/learning/track docs where needed, both experiment notebooks.
-- [ ] Review delegated changes; Black, applicable tests and repository checks.
-- [ ] Reduced rehearsals, final matrix dry runs, settings/dependency/code freeze.
-- [ ] Preserve original-data checksums; complete 15 tiny and 20 Experiment 2 runs.
-- [ ] Verify results and regenerate combined Experiment 1/new-only Experiment 2.
+- [x] Review delegated changes; Black, applicable tests and repository checks.
+- [x] Reduced rehearsals, final matrix dry runs, settings/dependency/code freeze.
+- [x] Preserve original-data checksums; complete 15 tiny and 20 Experiment 2 runs.
+- [x] Verify results and regenerate combined Experiment 1/new-only Experiment 2.
 - [ ] Write both reports and figures; commit separate concerns on main and
   record validation/results with commit references in `docs/DIARY.md`.
 

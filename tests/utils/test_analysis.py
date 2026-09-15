@@ -133,6 +133,33 @@ def test_recorded_failures_denominators_and_representative_tie(tmp_path) -> None
     }
 
 
+def test_load_recorded_runs_combines_compatible_roots(tmp_path) -> None:
+    """
+    A split study can be analyzed jointly without copying its raw run folders.
+    """
+    first = tmp_path / "original"
+    second = tmp_path / "extension"
+    write_analysis_run(
+        first / "small",
+        root_identity=0,
+        actor_name="small",
+        outcomes=(EpisodeOutcome.COMPLETED,) * 4,
+    )
+    write_analysis_run(
+        second / "tiny",
+        root_identity=0,
+        actor_name="tiny",
+        outcomes=(EpisodeOutcome.COMPLETED,) * 4,
+    )
+
+    runs = load_recorded_runs((first, second), category=RunCategory.REPORTED)
+
+    assert [(run.actor_name, run.root_identity) for run in runs] == [
+        ("small", 0),
+        ("tiny", 0),
+    ]
+
+
 def test_circuit_pairing_and_geometry_bins_preserve_circuit_identity() -> None:
     rows = [
         {

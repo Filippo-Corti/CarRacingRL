@@ -65,7 +65,7 @@ _PAIR_METRICS = (
 
 def analyze_results(
     *,
-    results_root: str | Path,
+    results_root: str | Path | Sequence[str | Path],
     output_directory: str | Path,
     experiment: int,
     category: RunCategory = RunCategory.REPORTED,
@@ -244,7 +244,12 @@ def parse_arguments(arguments: Sequence[str] | None = None) -> argparse.Namespac
     Parse explicit analysis inputs, experiment identity, and output location.
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--results-root", required=True)
+    parser.add_argument(
+        "--results-root",
+        required=True,
+        action="append",
+        help="Raw study directory. Repeat to combine compatible result roots.",
+    )
     parser.add_argument("--output", required=True)
     parser.add_argument("--experiment", required=True, type=int, choices=(1, 2))
     parser.add_argument(

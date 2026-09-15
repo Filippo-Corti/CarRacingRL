@@ -2226,3 +2226,31 @@ approved settings. No original result values were changed.
 `docs/MDP.md`, both experiment notebooks.
 
 **Commit**: `docs: freeze approved matrices and reporting conventions [ai]`.
+
+
+## 2026-09-15 - Generate the final experiment evidence bundle
+
+**Task**: Analyze the completed tiny-actor extension together with the original
+Experiment 1 runs, and analyze only the revised twenty-run Experiment 2 study.
+Prepare report inputs without interpreting their scientific meaning.
+
+**Result**: Loaded both Experiment 1 result roots as one compatible 60-run
+study and kept historical Experiment 2 data outside the revised 20-run study.
+Generated machine-readable outcome, convergence, common-budget, paired-root,
+generalization, control, resource and optimization tables. Generated nine
+Experiment 1 plots, eight Experiment 2 plots, compact Markdown data summaries,
+and a single index linking every table and figure. Manifests record source-run
+checksums and the frozen bootstrap settings.
+
+**Validation**: Verified 60/60 Experiment 1 and 20/20 revised Experiment 2 runs
+were complete; the incomplete staging directory was excluded. Both analyses
+reported no missing final control runs. Inspected the principal outcome,
+learning-curve and control figures. Ten focused tests, Black, Ruff and Pyright
+pass; every local link in the results index resolves.
+
+**Files**: `experiments/analyze_results.py`, `src/utils/analysis.py`, analysis
+tests, `results/README.md`, `results/analysis/provenance/build_report_tables.py`,
+and the two final analysis directories under
+`results/analysis/reported_experiments/`.
+
+**Commit**: `analysis: compile final experiment evidence [ai]`.

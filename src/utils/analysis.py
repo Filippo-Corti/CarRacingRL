@@ -6,6 +6,7 @@ import hashlib
 import itertools
 import json
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -132,17 +133,22 @@ class DescriptiveStatistics:
 
 
 def load_recorded_runs(
-    root: str | Path,
+    root: str | Path | Sequence[str | Path],
     *,
     category: RunCategory = RunCategory.REPORTED,
 ) -> tuple[RecordedRun, ...]:
     """
     Load complete runs in canonical identity order, independent of discovery order.
     """
-    root_path = Path(root)
+    root_paths = (
+        tuple(Path(path) for path in root)
+        if isinstance(root, Sequence) and not isinstance(root, (str, bytes))
+        else (Path(root),)
+    )
     directories = sorted(
         (
             path.parent
+            for root_path in root_paths
             for path in root_path.rglob("manifest.json")
             if ".incomplete" not in path.relative_to(root_path).parts
         ),

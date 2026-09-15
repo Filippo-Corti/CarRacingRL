@@ -77,6 +77,6 @@ def test_analysis_cli_requires_explicit_inputs() -> None:
         ]
     )
 
-    assert parsed.results_root == "results"
+    assert parsed.results_root == ["results"]
     assert parsed.experiment == 2
     assert parsed.run_category == RunCategory.REPORTED.value
