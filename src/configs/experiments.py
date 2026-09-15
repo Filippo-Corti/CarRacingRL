@@ -11,6 +11,7 @@ from .training import (
     LARGE_ACTOR_CONFIG,
     MEDIUM_ACTOR_CONFIG,
     SMALL_ACTOR_CONFIG,
+    TINY_ACTOR_CONFIG,
     ActorConfig,
 )
 
@@ -56,6 +57,7 @@ class Experiment1MatrixConfig(SerializableConfig):
         Algorithm.PPO,
     )
     actors: tuple[ActorConfig, ...] = (
+        TINY_ACTOR_CONFIG,
         SMALL_ACTOR_CONFIG,
         MEDIUM_ACTOR_CONFIG,
         LARGE_ACTOR_CONFIG,
@@ -89,7 +91,7 @@ class Experiment2MatrixConfig(SerializableConfig):
         ObservationRepresentation.FRENET,
         ObservationRepresentation.LIDAR,
     )
-    root_identities: tuple[int, ...] = (0, 1, 2, 3, 4)
+    root_identities: tuple[int, ...] = tuple(range(10))
     development_circuit_count: int = 8
     # Matched to the validation count so that the training-reference and
     # validation summaries rest on the same denominator: their gaps to the test

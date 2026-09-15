@@ -101,7 +101,7 @@ class ActorConfig(SerializableConfig):
         * initial_action_bias: Output-layer bias of the mean network per action.
     """
 
-    name: Literal["small", "medium", "large"]
+    name: Literal["tiny", "small", "medium", "large"]
     hidden_sizes: tuple[int, int]
     learning_rate: float | None = None
     activation: Literal["tanh"] = "tanh"
@@ -113,6 +113,7 @@ class ActorConfig(SerializableConfig):
     initial_action_bias: tuple[float, float] = (0.2, 0.0)
 
 
+TINY_ACTOR_CONFIG = ActorConfig(name="tiny", hidden_sizes=(8, 8))
 SMALL_ACTOR_CONFIG = ActorConfig(name="small", hidden_sizes=(32, 32))
 MEDIUM_ACTOR_CONFIG = ActorConfig(name="medium", hidden_sizes=(64, 64))
 LARGE_ACTOR_CONFIG = ActorConfig(name="large", hidden_sizes=(256, 256))
@@ -192,6 +193,9 @@ class LoggingConfig(SerializableConfig):
         * trajectory_interval: Training interactions between saved trajectories.
         * trajectory_circuits_per_boundary: Circuits whose step-level trajectory is
           retained at a qualifying boundary, in circuit order.
+        * final_evaluation_trajectory_circuits: Extra held-out final-evaluation
+          circuits whose trajectories are retained independently of the boundary
+          quota.
         * near_saturated_steering_threshold: Explicit absolute steering threshold
           used by reported episode summaries.
         * gradient_dispersion_subbatch: Transitions per sub-batch of the
@@ -208,6 +212,7 @@ class LoggingConfig(SerializableConfig):
     # every retained boundary, which is far more step-level detail than the
     # geometric diagnosis it exists for ever reads.
     trajectory_circuits_per_boundary: int = 2
+    final_evaluation_trajectory_circuits: int = 0
     near_saturated_steering_threshold: float | None = 0.9
     gradient_dispersion_subbatch: int | None = 256
 

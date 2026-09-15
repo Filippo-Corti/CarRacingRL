@@ -2155,3 +2155,29 @@ both experiment reports were preserved.
 **Files**: `TODO.md`, `docs/DIARY.md`.
 
 **Commit**: `docs: add experiment follow-up handoff [ai]`.
+
+
+## 2026-09-15 ? Complete the experiment matrices safely
+
+**Task**: Add the tiny actor under Experiment 1's original settings and configure
+Experiment 2's ten paired roots at one million interactions, preserving all
+historical data and learning semantics.
+
+**Result**: Added the 140-parameter `(8, 8)` actor and tiny-only runner selection;
+fixed revised Experiment 2 at medium PPO with isolated output directories;
+expanded completed-run compatibility checks and preserved refused/incomplete
+records. Final test trajectories have a separately recorded quota of 32.
+
+**Validation**: All 45 original runs pass the new contracts. Matrix dry runs show
+15 tiny and 20 revised runs. Focused tests cover changed budgets/cadence,
+non-destructive refusal, matrix settings, and retention. Paired short runs with
+retention 0 versus 32 preserve model/optimizer tensors, normalization, random
+states, and substantive training/evaluation records exactly. The initial full
+suite passed 272 tests with one stale archive-path expectation; the corrected
+matrix tests then passed. No learning targets, rewards or physics changed.
+
+**Files**: `src/configs/`, `experiments/experiment_1.py`,
+`experiments/experiment_2.py`, `experiments/matrix.py`, `experiments/train.py`,
+related config/matrix/training tests.
+
+**Commit**: `feature: extend experiment matrices without changing learning [ai]`.

@@ -10,20 +10,21 @@ tables and figures the write-up reads from.
     python experiments/experiment_1.py analyze    # tables and figures only
 
 `run` is resumable and contract-checked: an interrupted matrix continues where
-it stopped, and a run recorded under superseded constants is re-run instead of
-being silently reused. `--rehearsal` swaps the protocol budget for a short one
+it stopped, while a completed run recorded under different constants is
+preserved and refused. `--rehearsal` swaps the protocol budget for a short one
 and writes under a different category and seed namespace, so a rehearsal can
 neither be mistaken for a result nor share randomness with one.
 
-Three algorithms times three actor sizes times five roots is 45 runs of two
-million interactions, roughly nine hours on eight workers.
+Three algorithms times four actor sizes times five roots is 60 runs of two
+million interactions. The original 45 completed runs remain in this matrix;
+`--actor tiny` schedules only the 15 new runs.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -34,16 +35,17 @@ from reporting import read_table
 from train import run_a2c_training, run_ppo_training, run_reinforce_training
 
 from configs import (
+    FIXED_CRITIC_CONFIG,
     LARGE_ACTOR_CONFIG,
     MEDIUM_ACTOR_CONFIG,
     SMALL_ACTOR_CONFIG,
+    TINY_ACTOR_CONFIG,
     A2CConfig,
     EnvironmentConfig,
     ExecutionConfig,
     LoggingConfig,
     PPOConfig,
     ReinforceConfig,
-    physical_cpu_count,
 )
 from recording import RunCategory
 from utils.analysis import ppo_actor_selection_rows, selected_ppo_actor
@@ -56,10 +58,13 @@ ALGORITHMS = ("reinforce", "a2c", "ppo")
 # The size ladder is the scientific factor. The critic is held at (64, 64) for
 # A2C and PPO by `run_*_training`, so only the actor's capacity varies.
 ACTORS = {
+    "tiny": TINY_ACTOR_CONFIG,
     "small": SMALL_ACTOR_CONFIG,
     "medium": MEDIUM_ACTOR_CONFIG,
     "large": LARGE_ACTOR_CONFIG,
 }
+PPO_SELECTION_ACTORS = ("small", "medium", "large")
+ENVIRONMENT_WORKERS = 8
 
 # Selected before the experiment by the configuration check in EXPERIMENT.md.
 # The rate travels with the algorithm rather than with the size: holding it
@@ -79,19 +84,21 @@ class Scale:
         * evaluation_interval: Interactions between deterministic evaluations.
         * roots: Random roots, one run each.
         * category: Recording category, which also fixes the seed namespace.
+        * results_directory: Study directory below the category-specific roots.
     """
 
     budget: int
     evaluation_interval: int
     roots: tuple[int, ...]
     category: RunCategory
+    results_directory: str = "experiment_1"
 
     @property
     def results_root(self) -> Path:
         """
         Return where this scale's runs are recorded.
         """
-        return PROJECT_ROOT / "results" / self.category.value / "experiment_1"
+        return PROJECT_ROOT / "results" / self.category.value / self.results_directory
 
     @property
     def analysis_root(self) -> Path:
@@ -99,23 +106,36 @@ class Scale:
         Return where this scale's tables and figures are written.
         """
         return (
-            PROJECT_ROOT / "results" / "analysis" / self.category.value / "experiment_1"
+            PROJECT_ROOT
+            / "results"
+            / "analysis"
+            / self.category.value
+            / self.results_directory
         )
 
 
 PROTOCOL = Scale(2_000_000, 50_000, (0, 1, 2, 3, 4), RunCategory.REPORTED)
-REHEARSAL = Scale(60_000, 5_000, (0, 1), RunCategory.REDUCED_VALIDATION)
+REHEARSAL = Scale(
+    60_000,
+    5_000,
+    (0, 1),
+    RunCategory.REDUCED_VALIDATION,
+    "experiment_1_extension",
+)
 
 
-def specifications(scale: Scale) -> list[RunSpecification]:
+def specifications(
+    scale: Scale, actor_names: tuple[str, ...] = tuple(ACTORS)
+) -> list[RunSpecification]:
     """
     Enumerate every cell of the matrix, without starting any of them.
     """
-    execution = ExecutionConfig(environment_workers=physical_cpu_count())
+    execution = ExecutionConfig(environment_workers=ENVIRONMENT_WORKERS)
     steering = LoggingConfig().near_saturated_steering_threshold
     runs: list[RunSpecification] = []
     for algorithm in ALGORITHMS:
-        for actor_name, actor_config in ACTORS.items():
+        for actor_name in actor_names:
+            actor_config = ACTORS[actor_name]
             for root in scale.roots:
                 run_id = f"{algorithm}-{actor_name}-frenet-seed-{root}"
                 path = scale.results_root / run_id
@@ -142,8 +162,47 @@ def specifications(scale: Scale) -> list[RunSpecification]:
                         critic_learning_rate=CRITIC_LEARNING_RATE[algorithm],
                         **common,
                     )
-                runs.append(RunSpecification(run_id, path, launch))
+                runs.append(
+                    RunSpecification(
+                        run_id,
+                        path,
+                        launch,
+                        _run_contract(algorithm, actor_config, scale, execution),
+                    )
+                )
     return runs
+
+
+def _run_contract(
+    algorithm: str,
+    actor_config: Any,
+    scale: Scale,
+    execution: ExecutionConfig,
+) -> dict[str, Any]:
+    """
+    Return settings that must agree before this completed result is reused.
+    """
+    algorithm_config = {
+        "reinforce": ReinforceConfig(),
+        "a2c": A2CConfig(),
+        "ppo": PPOConfig(),
+    }[algorithm]
+    expected: dict[str, Any] = {
+        "training.training_interaction_budget": scale.budget,
+        "training.checkpoint_interval": 250_000,
+        "training.evaluation.evaluation_interval": scale.evaluation_interval,
+        "training.actor": replace(
+            actor_config, learning_rate=ACTOR_LEARNING_RATE[algorithm]
+        ).to_dict(),
+        "training.execution.environment_workers": execution.environment_workers,
+        f"training.{algorithm}": algorithm_config.to_dict(),
+    }
+    if algorithm != "reinforce":
+        expected["training.critic"] = replace(
+            FIXED_CRITIC_CONFIG,
+            learning_rate=CRITIC_LEARNING_RATE[algorithm],
+        ).to_dict()
+    return expected
 
 
 def contract() -> dict[str, Any]:
@@ -168,26 +227,45 @@ def analyze(scale: Scale) -> dict[str, Any]:
     print(f"analyzed {len(manifest['inputs'])} runs -> {scale.analysis_root}")
 
     summaries = read_table(scale.analysis_root, "run_summaries")
-    selection = ppo_actor_selection_rows(summaries)
-    selected = selected_ppo_actor(selection)
-    (scale.analysis_root / "ppo_actor_selection.json").write_text(
-        json.dumps(
-            {"selected_actor": selected, "candidates": selection},
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
+    selection_summaries = [
+        row for row in summaries if str(row["actor_name"]) in PPO_SELECTION_ACTORS
+    ]
+    selection = (
+        ppo_actor_selection_rows(selection_summaries) if selection_summaries else []
     )
+    selected = selected_ppo_actor(selection) if selection else None
+    if selected is not None:
+        _record_ppo_selection(scale.analysis_root, selected, selection)
     _report(scale, summaries, selection, selected)
     return manifest
+
+
+def _record_ppo_selection(
+    analysis_root: Path, selected: str, selection: list[dict[str, Any]]
+) -> None:
+    """
+    Create the original PPO selection record without replacing its evidence.
+    """
+    path = analysis_root / "ppo_actor_selection.json"
+    document = {"selected_actor": selected, "candidates": selection}
+    if path.is_file():
+        existing = json.loads(path.read_text(encoding="utf-8"))
+        if existing == document and selected == "medium":
+            return
+        raise RuntimeError(
+            "the existing PPO actor selection differs from the original medium "
+            "selection; refusing to overwrite it."
+        )
+    path.write_text(
+        json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def _report(
     scale: Scale,
     summaries: list[dict[str, Any]],
     selection: list[dict[str, Any]],
-    selected: str,
+    selected: str | None,
 ) -> None:
     """
     Print the digest a person running this from a terminal wants to see.
@@ -242,7 +320,9 @@ def _report(
             f"deficit {row['mean_paired_deficit']:>7.2f}  "
             f"admitted {row['admitted']!s:<5}  selected {row['selected']}"
         )
-    print(f"\nExperiment 2 will use the {selected!r} actor.")
+    if selected is None:
+        print("\nNo original PPO selection candidates were analyzed.")
+    print("Experiment 2 uses the original medium actor.")
     print(f"figures and tables: {scale.analysis_root}")
     print(f"runs analyzed: {len(summaries)}")
 
@@ -258,10 +338,17 @@ def main() -> int:
         action="store_true",
         help="Short budget, two roots, written as reduced validation.",
     )
+    parser.add_argument(
+        "--actor",
+        choices=tuple(ACTORS),
+        default=None,
+        help="Run one actor size; use tiny to schedule the 15 new runs only.",
+    )
     parsed = parser.parse_args()
     scale = REHEARSAL if parsed.rehearsal else PROTOCOL
 
-    runs = specifications(scale)
+    actor_names = tuple(ACTORS) if parsed.actor is None else (parsed.actor,)
+    runs = specifications(scale, actor_names)
     print(f"budget {scale.budget:,} | roots {scale.roots} | {scale.category.value}")
     print(f"{len(runs)} runs -> {scale.results_root}")
 

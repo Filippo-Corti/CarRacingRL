@@ -11,6 +11,7 @@ from configs import (
     LARGE_ACTOR_CONFIG,
     MEDIUM_ACTOR_CONFIG,
     SMALL_ACTOR_CONFIG,
+    TINY_ACTOR_CONFIG,
     A2CConfig,
     Algorithm,
     ExperimentMatricesConfig,
@@ -88,6 +89,7 @@ def test_experiment_matrices_cover_approved_choices() -> None:
         Algorithm.PPO,
     )
     assert tuple(actor.hidden_sizes for actor in experiment_1.actors) == (
+        (8, 8),
         (32, 32),
         (64, 64),
         (256, 256),
@@ -97,7 +99,7 @@ def test_experiment_matrices_cover_approved_choices() -> None:
         ObservationRepresentation.FRENET,
         ObservationRepresentation.LIDAR,
     )
-    assert experiment_2.root_identities == (0, 1, 2, 3, 4)
+    assert experiment_2.root_identities == tuple(range(10))
     assert experiment_2.development_circuit_count == 8
     assert experiment_2.validation_circuit_count == 16
     assert experiment_2.test_circuit_count == 32
@@ -109,3 +111,16 @@ def test_experiment_matrices_cover_approved_choices() -> None:
     )
     assert not hasattr(matrices, "learning_rate_calibration")
     assert FIXED_CRITIC_CONFIG.hidden_sizes == (64, 64)
+
+
+def test_tiny_actor_has_the_declared_frenet_parameter_count() -> None:
+    """
+    The `(8, 8)` architecture has 140 trainable actor parameters for five inputs.
+    """
+    import torch
+
+    from agents.models.actor import ActorNetwork
+
+    actor = ActorNetwork(5, TINY_ACTOR_CONFIG, torch.Generator().manual_seed(0))
+
+    assert actor.parameter_count == 140

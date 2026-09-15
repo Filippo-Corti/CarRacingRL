@@ -14,7 +14,6 @@ only knows how to execute a list of specifications and report what happened.
 from __future__ import annotations
 
 import json
-import shutil
 import traceback
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -32,11 +31,13 @@ class RunSpecification:
         * run_id: Identity of the run, unique within its matrix.
         * path: Directory the run writes its records into.
         * launch: Starts the run; called with no arguments.
+        * expected_contract: Run-specific settings a completed record must match.
     """
 
     run_id: str
     path: Path
     launch: Callable[[], object]
+    expected_contract: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,33 +149,45 @@ def execute(
     repaired specification can simply be run again. The caller is handed every
     outcome and decides what a failure means.
 
-    An incomplete directory is deleted before its run restarts. The recorder
-    refuses to write into a non-empty directory, and that debris is by
-    definition a run that produced no result.
+    A finished run that fails the contract is refused. It is evidence produced
+    under another setting, and deleting it would erase the distinction the
+    contract exists to protect. An incomplete directory is moved aside before
+    restart because the recorder refuses to write into a non-empty directory.
 
     A `contract` from `learning_contract` turns the skip into a *checked* skip:
-    a finished run whose recorded configuration no longer matches is re-run
-    rather than reused. Without it, changing a constant leaves a results tree
-    that mixes two contracts and looks complete.
+    a finished run whose recorded configuration no longer matches is refused.
+    Without it, changing a constant leaves a results tree that mixes two
+    contracts and looks complete.
     """
     outcomes: list[RunOutcome] = []
     total = len(specifications)
     for index, specification in enumerate(specifications, start=1):
         prefix = f"[{index}/{total}] {specification.run_id}"
-        if skip_complete and is_complete(specification.path):
+        if is_complete(specification.path):
+            expected_contract = {
+                **(contract or {}),
+                **(specification.expected_contract or {}),
+            }
             mismatch = (
                 None
-                if contract is None
-                else contract_mismatch(specification.path, contract)
+                if not expected_contract
+                else contract_mismatch(specification.path, expected_contract)
             )
-            if mismatch is None:
+            if mismatch is not None:
+                error = f"recorded under a different contract ({mismatch})"
+                report(f"{prefix}: REFUSED: {error}")
+                outcomes.append(RunOutcome(specification.run_id, "failed", 0.0, error))
+                continue
+            if skip_complete:
                 report(f"{prefix}: already complete, skipped")
                 outcomes.append(RunOutcome(specification.run_id, "skipped", 0.0))
                 continue
-            report(f"{prefix}: recorded under a different contract ({mismatch})")
         if specification.path.exists():
-            report(f"{prefix}: clearing an incomplete directory")
-            shutil.rmtree(specification.path)
+            archived = _archive_incomplete(specification.path)
+            report(
+                f"{prefix}: moved incomplete directory to "
+                f"{archived.relative_to(specification.path.parent)}"
+            )
         report(f"{prefix}: running")
         started = perf_counter()
         try:
@@ -195,6 +208,21 @@ def execute(
         report(f"{prefix}: done in {duration / 60:.1f} min")
         outcomes.append(RunOutcome(specification.run_id, "completed", duration))
     return outcomes
+
+
+def _archive_incomplete(path: Path) -> Path:
+    """
+    Move interrupted output aside without destroying its partial evidence.
+    """
+    archive_root = path.parent / ".incomplete"
+    archive_root.mkdir(exist_ok=True)
+    index = 1
+    while True:
+        archived = archive_root / f"{path.name}-{index}"
+        if not archived.exists():
+            path.rename(archived)
+            return archived
+        index += 1
 
 
 def summarize(

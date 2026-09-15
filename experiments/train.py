@@ -293,6 +293,7 @@ def run_ppo_training(
     training_circuit_schedule: TrainingCircuitSchedule | None = None,
     evaluation_circuits: Sequence[EvaluationCircuit] | None = None,
     final_evaluation_circuits: Sequence[EvaluationCircuit] | None = None,
+    final_evaluation_trajectory_circuits: int | None = None,
     training_reference_circuits: int = 0,
     observation: ObservationRepresentation = ObservationRepresentation.FRENET,
     run_category: RunCategory = RunCategory.REDUCED_VALIDATION,
@@ -328,6 +329,11 @@ def run_ppo_training(
         ),
         logging=replace(
             base_training_config.logging,
+            final_evaluation_trajectory_circuits=(
+                base_training_config.logging.final_evaluation_trajectory_circuits
+                if final_evaluation_trajectory_circuits is None
+                else final_evaluation_trajectory_circuits
+            ),
             near_saturated_steering_threshold=(
                 base_training_config.logging.near_saturated_steering_threshold
                 if near_saturated_steering_threshold is None
@@ -550,6 +556,9 @@ def _run_training(
             trajectory_circuits_per_boundary=(
                 training_config.logging.trajectory_circuits_per_boundary
             ),
+            final_evaluation_trajectory_circuits=(
+                training_config.logging.final_evaluation_trajectory_circuits
+            ),
             final_interactions=training_config.training_interaction_budget,
         )
         record_persistence = perf_counter() - persistence_started
@@ -670,6 +679,7 @@ def _write_engine_records(
     *,
     trajectory_interval: int,
     trajectory_circuits_per_boundary: int,
+    final_evaluation_trajectory_circuits: int,
     final_interactions: int,
 ) -> None:
     """
@@ -678,9 +688,28 @@ def _write_engine_records(
     for record in engine.episode_records:
         run.append("episodes", record)
     retained_at_boundary: Counter[int] = Counter()
+    retained_final_test_trajectories = 0
     for evaluation in engine.evaluations:
         run.append("evaluations", evaluation.record)
         boundary = evaluation.record.training_interactions
+        is_final_test_evaluation = (
+            boundary == final_interactions
+            and evaluation.record.episode.circuit_split == CircuitSplit.TEST.value
+        )
+        if final_evaluation_trajectory_circuits and is_final_test_evaluation:
+            if retained_final_test_trajectories < final_evaluation_trajectory_circuits:
+                retained_final_test_trajectories += 1
+                run.write_trajectory(
+                    f"evaluation_{evaluation.record.evaluation_index}_interaction_{boundary}",
+                    {
+                        "evaluation": evaluation.record.to_dict(),
+                        "transitions": [
+                            transition.to_dict()
+                            for transition in evaluation.transitions
+                        ],
+                    },
+                )
+            continue
         qualifies = (
             boundary == final_interactions or boundary % trajectory_interval == 0
         )
