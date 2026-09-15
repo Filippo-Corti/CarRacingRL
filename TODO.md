@@ -1,4 +1,55 @@
-# Experiment follow-up and exam preparation
+# Approved execution scope — 2026-09-15
+
+The user approved implementation, **all 35 new runs**, and both final reports.
+This section supersedes conflicting instructions in the historical handoff below.
+
+- Keep all 45 existing Experiment 1 runs. Add `(8, 8)` actors for all three
+  algorithms, roots `0..4`, at 2M interactions. Present all 60 runs together.
+- Rerun Experiment 2: medium PPO, Frenet/LiDAR, roots `0..9`, 1M interactions.
+  Its final report includes only these 20 new runs. Medium stays fixed even if
+  tiny performs better; preserve the original architecture-selection artifact.
+- **Do not change timeout targets or any other training semantics.** Document
+  the REINFORCE versus A2C/PPO timeout mismatch briefly. Work B is cancelled.
+- Keep original rates, physics, rewards, observations, initialization, circuit
+  splits, evaluation cadence (50k), checkpoints (250k plus final), eight CPU
+  workers and one Torch intra/inter-op thread. Train sequentially.
+- Run every new condition; the user manages the deadline. Use GPT-5.6 Terra
+  subagents with high reasoning for bounded tasks and review their work.
+- Combined Experiment 1 uses `results/reported_experiments/experiment_1/`.
+  Preserve historical Experiment 2 in `experiment_2/`; new runs use
+  `experiment_2_revised/`. Analysis mirrors these names. Add a results index.
+- Replace `docs/EXPERIMENT_1.md` and `docs/EXPERIMENT_2.md` with the requested
+  complete reports and update their figure directories.
+- Freeze analysis conventions: Experiment 1 exhaustive root bootstrap;
+  Experiment 2 10,000 whole-root resamples, seed 0, percentile 95% intervals.
+  Pair root-level differences. Circuits are aggregated within each root first.
+- Preserve first-of-three threshold attainment and final outcomes. Add recorded
+  confirmation cost and late stability at `0.8B < interactions <= B`.
+  Common-budget comparisons use 250k, 500k, 750k, 1M (and 2M for Experiment 1).
+- Analyze every root's final controls; retain all 32 final test trajectories
+  per Experiment 2 run. Keep action/distance alignment, separate straight
+  curvature, disclose thresholds, and use representative traces as illustrations.
+
+## Approved implementation and validation checklist
+
+- [ ] Configs/matrices and safe result handling: `src/configs/`, experiment
+  runners, `experiments/matrix.py`, focused tests.
+- [ ] Final-test trajectory retention: `experiments/train.py`, logging config
+  and focused tests, with original training behaviour preserved.
+- [ ] Root uncertainty, convergence, size/algorithm panels and controls:
+  analysis/plotting utilities, `experiments/analyze_results.py`, focused tests.
+- [ ] Protocol/notebook consistency and factual corrections: README, protocol,
+  MDP/learning/track docs where needed, both experiment notebooks.
+- [ ] Review delegated changes; Black, applicable tests and repository checks.
+- [ ] Reduced rehearsals, final matrix dry runs, settings/dependency/code freeze.
+- [ ] Preserve original-data checksums; complete 15 tiny and 20 Experiment 2 runs.
+- [ ] Verify results and regenerate combined Experiment 1/new-only Experiment 2.
+- [ ] Write both reports and figures; commit separate concerns on main and
+  record validation/results with commit references in `docs/DIARY.md`.
+
+---
+
+# Historical handoff and review notes
 
 **Created:** 2026-09-15. **Status:** implementation and experiment execution pending.
 
@@ -99,8 +150,7 @@ presentation day to complete an optional extension.
 At handoff creation, the two experiment reports already had uncommitted user
 edits. Inspect current `git status` and preserve the user's work. The raw
 `results/` directory is untracked and was on another device during the review.
-Do not assume access to it, recreate numerical findings from prose, or claim
-that raw results have been audited. Committed figures are under `docs/figures/`.
+You should now have access to it.
 
 Original data locations are:
 
@@ -181,6 +231,8 @@ the original tables traceable when correcting the accompanying explanations.
   to the prose must not imply that an old run used corrected training targets.
 - [ ] Link this follow-up from the README and correct directly relevant stale
   roadmap claims without starting a broad documentation rewrite.
+
+> WRONG: I don't care about stating original-versus-follow-up. Just make it so that it looks like one full experiment. Don't correct the target issues with REINFORCE vs A2C/PPO. Just document that it exists.
 
 ### Specific corrections already identified
 
@@ -279,6 +331,8 @@ comparison names its budget and training treatment, and no historical claim
 quietly changes its meaning through a prose correction.
 
 ## Work B — Make timeout treatment explicit and compatible
+
+> WRONG: Don't do any of this. It will be slightly incompatible but that's ok. Add a small note to remember about this possible issue. We can't fix it now. I would have to re-run everything.
 
 ### Why this matters
 

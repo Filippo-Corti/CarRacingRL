@@ -14,12 +14,15 @@ In other words, the agent only reacts every $4$ simulation steps, choosing the a
 
 ## Environment State
 
-$$ s_t = (x_t, y_t, \theta_t, v_t, \delta_t, C) $$
+$$ s_t = (x_t, y_t, \theta_t, v_t, \delta_t, C, \ell_t, p_t, h_t) $$
 
 Where:
 * $x_t, y_t, \theta_t$ describe the current pose of the car (location and orientation).
 * $v_t, \delta_t$ describe the current internal state of the car (velocity and front-wheel angle).
 * $C$ is the configuration of the circuit, representing the environment. For more information on that, check [`TRACK.md`](TRACK.md).
+* $\ell_t$ is the episode lifecycle state, including elapsed agent steps and the start/finish progress that fixes the current lap.
+* $p_t$ is the accumulated signed episode progress.
+* $h_t$ is the recent progress history used by the stall rule.
 
 This represents fully the environment but it is not what the agent observes.
 
@@ -28,8 +31,7 @@ This represents fully the environment but it is not what the agent observes.
 
 ## Observed State (1) - Frenet Coordinates
 
-A rich **Markov-like** observation of the environment is the one provided by the **Frenet Coordinates**.
-This observation assume that the car can localize itself on the track and has access to the circuit geometry.
+Frenet coordinates provide a track-relative observation. They assume that the car can localize itself on the track and has access to local circuit geometry.
 
 $$ o_t^{\text{Frenet}} = (d_t, \phi_{e,t}, v_t, \delta_t, \bar{\kappa}_t) $$
 
@@ -40,8 +42,7 @@ Where:
 * $\delta_t$ is the current front-wheel steering angle.
 * $\bar{\kappa}_t$ is a velocity-dependent summary of the track curvature ahead.
 
-> Note that the observation is not strictly **Markov**: for example, the car could be in two different tracks that share a very similar section. They would be locally equal, but as the car progresses the control action would have different effects.
-> Nevertheless, the representation is intended to expose the most relevant information to short-horizon.
+> This is a partial observation of the full state. It omits the lifecycle clock, lap/start progress and stall history, and its local curvature summary does not identify an entire circuit. It is intended to expose useful short-horizon geometry, not to make the feed-forward policy Markov.
 
 ## Observed State (2) - LiDAR Readings
 
@@ -58,7 +59,7 @@ Where:
 More precisely, we choose to model a LiDAR sensor with $16$ rays whose first and last rays are included in a field of view (FOV) of $200°$.
 This corresponds to an angular separation of $200°/(16-1) \approx 13.33°$. 
 
-> This is a real **Partially Observable MDP**, as it is willingly designed to consider partial observability via local sensing, and nothing more than that.
+> LiDAR is also a partial observation of the full state. Its local ranges omit the lifecycle variables and the unobserved circuit beyond sensor range.
 
 
 ## Action Space
@@ -96,9 +97,7 @@ More on this is specified below.
 
 ## Transition Kernel
 
-Given the current environment state $s_t = (x_t, y_t, \theta_t, v_t, \delta_t, C)$ and a control action $a_t = (a_t^{throttle}, a_t^{steer})$, the transition to:
-$$s_{t+1} = (x_{t+1}, y_{t+1}, \theta_{t+1}, v_{t+1}, \delta_{t+1}, C)$$
-under deterministic constraints is assumed to be expressed by the **bicycle model** equations:
+Given the current physical substate $(x_t, y_t, \theta_t, v_t, \delta_t, C)$ of $s_t$ and a control action $a_t = (a_t^{throttle}, a_t^{steer})$, the physical transition is expressed by the **bicycle model** equations. The environment then updates the lifecycle variables $(\ell_t, p_t, h_t)$ from the transition outcome:
 
 $$
 \begin{aligned}
@@ -175,7 +174,7 @@ A state $s_t$ is `terminal` if:
 * $s_t \in \mathcal{S}$. That is, the car has stopped racing and is simply stalling.
 
 Finishing, crashing and stalling set `terminated=True`.
-Reaching $T_{\max}$ without any of them sets `truncated=True` and does not turn the state into an MDP terminal state.
+Reaching $T_{\max}$ without any of them sets `truncated=True`. The environment retains this Gymnasium distinction; A2C and PPO bootstrap once from the critic there, as specified in [`LEARNING.md`](LEARNING.md).
 
 Indications on how to check if $s_t \in \mathcal{F}$ or $s_t \in \mathcal{W}$ are in [`TRACK.md`](TRACK.md).
 
@@ -263,10 +262,14 @@ r_{\text{slow}}
 = R_{\text{finish}} + R_{\text{lap}}\left(1-\frac{33}{40}\right) - 33
 = 100 + 140(1-0.825)-33
 = 91.5,\\
-\frac{r_{\text{fast}}-r_{\text{slow}}}{r_{\text{fast}}}
-= \frac{141-91.5}{141}
-\approx 0.351 > 0.2.
+r_{\text{fast,total}} \approx 141 + 100 = 241,\\
+r_{\text{slow,total}} \approx 91.5 + 100 = 191.5,\\
+\frac{r_{\text{fast,total}}-r_{\text{slow,total}}}{r_{\text{fast,total}}}
+= \frac{241-191.5}{241}
+\approx 0.205 > 0.2.
 $$
+
+Both successful laps accumulate approximately 100 points from the progress term. The exact total depends on whether progress and the terminal reward are accounted for on the same final step; the calculation above is an illustration of the implemented coefficients.
 
 ### Discounted Horizon Parameter
 
@@ -274,5 +277,4 @@ The experimental setting has a finite horizon.
 To align with this decision, no discount factor $\gamma$ is applied:
 $$ \gamma = 1 $$
 
-A different choice for $\gamma$ would model as an incentive to progress quickly at the start of an episode.
-The algorithm would still learn and results would be comparably better, but it would compromise the theoretical clarity of the finite horizon objective.
+A different choice for $\gamma$ would place more weight on earlier rewards and would therefore define a different objective. The undiscounted choice keeps the reported objective aligned with the finite episode return.

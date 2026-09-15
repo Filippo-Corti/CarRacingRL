@@ -30,7 +30,9 @@ Try to learn a policy that can solve multiple circuits, in particular circuits n
 
 # Additional Notes
 
-The current implementation roadmap is maintained in [`PLAN.md`](PLAN.md). The
+The current experiment-completion scope is maintained in [`TODO.md`](TODO.md).
+Phase 2 is closed and archived in
+[`docs/old-plans/phase-2-experiment-ready-learning-system.md`](docs/old-plans/phase-2-experiment-ready-learning-system.md). The
 scientific comparisons, measures and analysis rules are specified separately in
 [`docs/EXPERIMENT.md`](docs/EXPERIMENT.md). The exact policy, target and loss
 equations are fixed in [`docs/LEARNING.md`](docs/LEARNING.md).
@@ -45,7 +47,7 @@ equations are fixed in [`docs/LEARNING.md`](docs/LEARNING.md).
    LiDAR and multi-track orchestration. Run reduced-budget end-to-end validation
    on every experimental path.
 3. **Experiment 1 — policy-space complexity.** Run REINFORCE, A2C+GAE and PPO
-   with small, medium and large policy networks on one fixed circuit using
+   with tiny, small, medium and large policy networks on one fixed circuit using
    Frenet observations and five paired training roots.
 4. **Experiment 2 — generalization and observations.** Select a PPO policy size
    by the preregistered Experiment 1 rule, train on procedurally generated
@@ -120,7 +122,7 @@ The environment uses a point-car bicycle model with a tyre friction budget, a
 steering-rate limit and drag. It has no tyre slip, load transfer, speed-dependent
 downforce or finite vehicle footprint. Training samples the start pose around the
 circuit while deterministic evaluation always launches from the canonical start
-line. LiDAR and multi-circuit training remain Phase-2 work.
+line. LiDAR observations and multi-circuit training are also implemented.
 
 ## Evaluate the reference controllers
 
@@ -148,21 +150,23 @@ code is not reused by default.
 
 Experiment 1 varies only the actor hidden sizes:
 
+- tiny: `(8, 8)`;
 - small: `(32, 32)`;
 - medium: `(64, 64)`; and
 - large: `(256, 256)`.
 
 For A2C and PPO, critic capacity remains fixed across actor sizes. Each of the
-nine algorithm/size cells uses five paired training roots and an equal
+twelve algorithm/size cells uses five paired training roots and an equal
 environment-interaction budget. The primary evidence is lap completion, lap
 time with its completion denominator, progress and crash rate. Return, learning-
 curve area, interactions/time to convergence, throughput, memory and
 optimization diagnostics are also retained.
 
-Experiment 2 uses PPO and selects the smallest adequate actor through the rule
-declared before seeing multi-track test results. Frenet and LiDAR runs are paired
-by training root, procedural track schedule and held-out circuits. Evaluation is
-deterministic and does not update normalization or consume training randomness.
+Experiment 2 uses the medium PPO actor selected from the original Experiment 1
+candidate set before its rerun. Frenet and LiDAR runs are paired by training root,
+procedural track schedule and held-out circuits. Each condition has ten roots and
+one million training interactions. Evaluation is deterministic and does not update
+normalization or consume training randomness.
 See [`docs/EXPERIMENT.md`](docs/EXPERIMENT.md) for the complete protocol.
 
 ## Training engines

@@ -176,9 +176,9 @@ This is a standard practice to improve stability, avoiding that unusually noisy 
 
 ## Episode Endings and Value Bootstrap
 
-The environment distinguishes genuine MDP endings from an external time limit, using the `terminated` and `truncated` flags.
+The environment distinguishes genuine MDP endings from an external time limit, using the `terminated` and `truncated` flags. Both reported studies retain the original target treatment at the finite task deadline.
 
-For A2C and PPO, the next-state bootstrap value is defined as as:
+For A2C and PPO, the next-state bootstrap value is:
 $$
 B_t=
 \begin{cases}
@@ -187,8 +187,7 @@ v_{\mathbf w}(O_{t+1}), & \text{otherwise}.
 \end{cases}
 $$
 
-A time-limit ending is not an MDP terminal state, so it still uses the critic's estimate of $O_{t+1}$. The TD
-error is:
+A time-limit ending uses the critic estimate in both reported studies. REINFORCE instead stops its Monte Carlo return at the deadline, so this is an honest limitation when comparing REINFORCE with A2C or PPO. Genuine nonterminal rollout cuts also bootstrap. The TD error is:
 $$
 \delta_t^{\mathbf w}=
 r_{t+1}+B_t-v_{\mathbf w}(O_t).

@@ -2205,3 +2205,24 @@ reads the 45 original runs. Black, Ruff and Pyright pass.
 `src/utils/plotting.py`, `experiments/analyze_results.py`, related tests.
 
 **Commit**: `feature: compare root-level learning and final driving controls [ai]`.
+
+
+## 2026-09-15 ? Freeze the approved reporting protocol
+
+**Task**: Reconcile the handoff with the user's annotations and make supported
+notebooks use the approved executable matrices.
+
+**Result**: Documented the 60-run combined Experiment 1 and new-only 20-run
+Experiment 2, unchanged timeout behaviour, bootstrap/stability conventions,
+partial observations, threshold confirmation and the reward illustration.
+Notebooks now call the runners directly and display current analysis schemas.
+Corrected relevant stale README links and implementation status.
+
+**Validation**: Notebook cells pass Python parsing, Black formatting and
+notebook schema validation. The final execution specifications match the
+approved settings. No original result values were changed.
+
+**Files**: `TODO.md`, `README.md`, `docs/EXPERIMENT.md`, `docs/LEARNING.md`,
+`docs/MDP.md`, both experiment notebooks.
+
+**Commit**: `docs: freeze approved matrices and reporting conventions [ai]`.
