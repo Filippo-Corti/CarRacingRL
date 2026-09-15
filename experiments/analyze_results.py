@@ -9,6 +9,7 @@ import json
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import asdict
+from itertools import combinations
 from pathlib import Path
 from typing import Any
 
@@ -31,8 +32,12 @@ from utils.analysis import (
     training_episode_rows,
     update_rows,
 )
+from utils.driving import FinalDrive, root_control_rows
 from utils.plotting import (
     plot_circuit_geometry,
+    plot_comparison_curves,
+    plot_control_summaries,
+    plot_control_traces,
     plot_convergence_resources,
     plot_curvature_controls,
     plot_learning_curves,
@@ -53,6 +58,8 @@ _PAIR_METRICS = (
     "restricted_convergence_duration",
     "training_duration",
     "end_to_end_duration",
+    "late_completion_rate",
+    "late_mean_return",
 )
 
 
@@ -63,6 +70,8 @@ def analyze_results(
     experiment: int,
     category: RunCategory = RunCategory.REPORTED,
     geometry_specification: str | Path | None = None,
+    seed: int = 0,
+    bootstrap_resamples: int = 10_000,
 ) -> dict[str, Any]:
     """
     Validate inputs and write every deterministic table and requested figure.
@@ -78,19 +87,22 @@ def analyze_results(
     evaluations = evaluation_rows(runs)
     curves = learning_curve_rows(runs, experiment=experiment)
     summaries = run_summary_rows(runs, experiment=experiment)
-    cells = cell_summary_rows(summaries, experiment=experiment)
+    cells = cell_summary_rows(
+        summaries, experiment=experiment, seed=seed, resamples=bootstrap_resamples
+    )
     updates = update_rows(runs)
     curvature = curvature_control_rows(
         runs,
         summaries,
         experiment=experiment,
     )
-    if not curvature:
-        raise RunRecordingError(
-            "analysis requires retained final trajectories for curvature results."
-        )
+    drives = FinalDrive.from_runs(runs, experiment=experiment)
+    controls = [drive.summary() for drive in drives]
+    root_controls = root_control_rows(controls)
     paired = _experiment_pairs(summaries, experiment)
-    paired_summaries = _paired_summary_rows(paired)
+    paired_summaries = _paired_summary_rows(
+        paired, experiment=experiment, seed=seed, resamples=bootstrap_resamples
+    )
 
     tables: dict[str, list[dict[str, Any]]] = {
         "run_inventory": run_inventory_rows(runs),
@@ -103,6 +115,14 @@ def analyze_results(
         "paired_summaries": paired_summaries,
         "optimization_diagnostics": updates,
         "curvature_controls": curvature,
+        "circuit_controls": controls,
+        "root_controls": root_controls,
+        "common_budget_outcomes": [
+            row
+            for row in curves
+            if row["training_interactions"]
+            in (250_000, 500_000, 750_000, 1_000_000, 2_000_000)
+        ],
     }
     if experiment == 2:
         split_rows = final_split_rows(runs)
@@ -145,6 +165,29 @@ def analyze_results(
         "optimization_diagnostics.png": plot_optimization_diagnostics(updates),
         "curvature_controls.png": plot_curvature_controls(curvature),
     }
+    if controls:
+        figure_paths["control_summaries.png"] = plot_control_summaries(
+            root_controls, experiment=experiment
+        )
+        # Fixed root/circuit identities make these illustrations independent of
+        # observed success; all roots/circuits remain in the summary tables.
+        illustrated = [
+            drive
+            for drive in drives
+            if drive.run.root_identity == 0
+            and (experiment == 1 or str(drive.episode["circuit_identity"]) == "0")
+        ]
+        if illustrated:
+            figure_paths["control_traces.png"] = plot_control_traces(
+                illustrated, experiment=experiment
+            )
+    if experiment == 1:
+        figure_paths["sizes_within_algorithms.png"] = plot_comparison_curves(
+            curves, fixed_key="algorithm", varying_key="actor_name"
+        )
+        figure_paths["algorithms_within_sizes.png"] = plot_comparison_curves(
+            curves, fixed_key="actor_name", varying_key="algorithm"
+        )
     if experiment == 2:
         figure_paths["circuit_geometry.png"] = plot_circuit_geometry(
             _final_evaluation_rows(runs, evaluations)
@@ -159,11 +202,27 @@ def analyze_results(
         "conventions": {
             "aggregation_unit": "training_root",
             "curve_area": "trapezoid_first_to_final_divided_by_recorded_span",
-            "confidence_interval": "exhaustive_root_bootstrap_2.5_97.5_percentiles",
+            "confidence_interval": (
+                "exhaustive_root_bootstrap_2.5_97.5_percentiles"
+                if experiment == 1
+                else "seeded_root_bootstrap_2.5_97.5_percentiles"
+            ),
+            "bootstrap_seed": seed,
+            "bootstrap_resamples": None if experiment == 1 else bootstrap_resamples,
             "convergence": "first_of_three_consecutive_qualifying_checkpoints",
             "final_window_evaluations": 3,
-            "representative_trajectory": "nearest_cell_median_final_return_then_lower_root",
-            "curvature_bins": "circuit_sample_absolute_curvature_quartiles",
+            "late_window": "0.8 * budget < interactions <= budget",
+            "illustrated_trajectory": "root_0; Experiment 2 test circuit identity 0",
+            "control_aggregation": "equal steps within circuit; equal circuits within root; equal roots",
+            "controls": "all retained final drives; Experiment 2 test split only",
+            "curvature_bins": "straight <= 1e-8; unique positive circuit quartile edges below maximum",
+            "steering_reversal_deadband": 0.05,
+            "near_zero_throttle_threshold": 0.05,
+            "missing_final_control_runs": [
+                run.directory.run_id
+                for run in runs
+                if run.directory.run_id not in {row["run_id"] for row in controls}
+            ],
         },
         "inputs": [
             {
@@ -189,6 +248,15 @@ def parse_arguments(arguments: Sequence[str] | None = None) -> argparse.Namespac
     parser.add_argument("--output", required=True)
     parser.add_argument("--experiment", required=True, type=int, choices=(1, 2))
     parser.add_argument(
+        "--seed", type=int, default=0, help="Root-bootstrap seed (protocol: 0)."
+    )
+    parser.add_argument(
+        "--bootstrap-resamples",
+        type=int,
+        default=10_000,
+        help="Experiment 2 root resamples (protocol: 10000).",
+    )
+    parser.add_argument(
         "--run-category",
         choices=tuple(category.value for category in RunCategory),
         default=RunCategory.REPORTED.value,
@@ -211,6 +279,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
         experiment=parsed.experiment,
         category=RunCategory(parsed.run_category),
         geometry_specification=parsed.geometry_specification,
+        seed=parsed.seed,
+        bootstrap_resamples=parsed.bootstrap_resamples,
     )
     print(
         f"Analyzed {len(manifest['inputs'])} runs for Experiment "
@@ -222,11 +292,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
 def _experiment_pairs(summaries: list[TableRow], experiment: int) -> list[TableRow]:
     pairs: list[TableRow] = []
     if experiment == 1:
-        for left, right in (
-            ("small", "medium"),
-            ("small", "large"),
-            ("medium", "large"),
-        ):
+        sizes = [
+            size
+            for size in ("tiny", "small", "medium", "large")
+            if any(row["actor_name"] == size for row in summaries)
+        ]
+        for left, right in combinations(sizes, 2):
             pairs.extend(
                 paired_difference_rows(
                     summaries,
@@ -266,7 +337,9 @@ def _experiment_pairs(summaries: list[TableRow], experiment: int) -> list[TableR
     return sorted(pairs, key=_row_sort_key)
 
 
-def _paired_summary_rows(rows: list[TableRow]) -> list[dict[str, Any]]:
+def _paired_summary_rows(
+    rows: list[TableRow], *, experiment: int = 1, seed: int = 0, resamples: int = 10_000
+) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str, str], list[TableRow]] = defaultdict(list)
     for row in rows:
         grouped[
@@ -286,7 +359,12 @@ def _paired_summary_rows(rows: list[TableRow]) -> list[dict[str, Any]]:
         }
         for metric in _PAIR_METRICS:
             summary[metric] = asdict(
-                descriptive_statistics([float(row[metric]) for row in group])
+                descriptive_statistics(
+                    [float(row[metric]) for row in group],
+                    seed=seed,
+                    resamples=resamples,
+                    exhaustive=experiment == 1,
+                )
             )
         output.append(summary)
     return output

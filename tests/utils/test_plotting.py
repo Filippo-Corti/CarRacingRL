@@ -42,6 +42,7 @@ def test_learning_and_curvature_plots_preserve_expected_series(tmp_path) -> None
             "actor_name": "small",
             "observation_type": "frenet",
             "curvature_bin": curvature_bin,
+            "run_id": outcome,
             "outcome": outcome,
             "sample_count": 2,
             "mean_speed": 10.0 + index,

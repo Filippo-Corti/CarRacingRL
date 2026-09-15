@@ -49,6 +49,8 @@ def test_known_curve_area_convergence_and_censoring() -> None:
         "censored": False,
         "convergence_interactions": 20,
         "convergence_duration": 2.0,
+        "confirmation_interactions": 40,
+        "confirmation_duration": 4.0,
         "restricted_convergence_interactions": 20,
         "restricted_convergence_duration": 2.0,
     }
@@ -121,8 +123,14 @@ def test_recorded_failures_denominators_and_representative_tie(tmp_path) -> None
         ("ppo", "small"): summaries[0]["run_id"]
     }
     curvature = curvature_control_rows(runs, summaries, experiment=1)
-    assert sum(int(row["sample_count"]) for row in curvature) == 4
-    assert {row["curvature_bin"] for row in curvature} == {"q1", "q2", "q3", "q4"}
+    assert sum(int(row["sample_count"]) for row in curvature) == 8
+    assert {row["root_identity"] for row in curvature} == {0, 1}
+    assert {row["curvature_bin"] for row in curvature} == {
+        "curve_1",
+        "curve_2",
+        "curve_3",
+        "curve_4",
+    }
 
 
 def test_circuit_pairing_and_geometry_bins_preserve_circuit_identity() -> None:

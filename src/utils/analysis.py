@@ -115,8 +115,8 @@ class DescriptiveStatistics:
         * third_quartile: Root-level third quartile.
         * minimum: Smallest root value.
         * maximum: Largest root value.
-        * confidence_interval_low: Exact root-bootstrap lower percentile.
-        * confidence_interval_high: Exact root-bootstrap upper percentile.
+        * confidence_interval_low: Root-bootstrap lower percentile.
+        * confidence_interval_high: Root-bootstrap upper percentile.
     """
 
     count: int
@@ -141,7 +141,11 @@ def load_recorded_runs(
     """
     root_path = Path(root)
     directories = sorted(
-        (path.parent for path in root_path.rglob("manifest.json")),
+        (
+            path.parent
+            for path in root_path.rglob("manifest.json")
+            if ".incomplete" not in path.relative_to(root_path).parts
+        ),
         key=lambda path: path.as_posix(),
     )
     runs: list[RecordedRun] = []
@@ -170,6 +174,7 @@ def load_recorded_runs(
             )
         )
     _reject_duplicate_identities(runs)
+    _reject_incompatible_runs(runs)
     return tuple(sorted(runs, key=_run_sort_key))
 
 
@@ -191,6 +196,49 @@ def _reject_duplicate_identities(runs: list[RecordedRun]) -> None:
                 f"{previous} and {run.directory.path}."
             )
         seen[identity] = run.directory.path
+
+
+def _reject_incompatible_runs(runs: list[RecordedRun]) -> None:
+    """
+    Refuse mixed budgets or changed controlled settings within a study.
+
+    Actor widths and observation inputs are design factors; algorithm rates
+    are compared within algorithm. Logging additions and provenance changes
+    do not invalidate otherwise comparable historical records.
+    """
+    contracts: dict[str, tuple[str, Any]] = {}
+    for run in runs:
+        training = run.config["training"]
+        environment = dict(run.config["environment"])
+        environment.pop("observation_type", None)
+        actor = dict(training["actor"])
+        actor.pop("name", None)
+        actor.pop("hidden_sizes", None)
+        actor.pop("learning_rate", None)
+        fields = {
+            "budget": run.completion["training_interactions"],
+            "environment": environment,
+            "actor_settings": actor,
+            **{
+                name: training.get(name)
+                for name in (
+                    "evaluation",
+                    "checkpoint_interval",
+                    "normalization",
+                    "execution",
+                )
+            },
+            f"{run.algorithm}_settings": training.get(run.algorithm),
+            f"{run.algorithm}_actor_rate": run.config.get("actor_learning_rate"),
+            f"{run.algorithm}_critic_rate": run.config.get("critic_learning_rate"),
+            f"{run.algorithm}_critic": training.get("critic"),
+        }
+        for name, value in fields.items():
+            if name in contracts and contracts[name][1] != value:
+                raise RunRecordingError(
+                    f"incompatible {name}: {contracts[name][0]} and {run.directory.run_id}."
+                )
+            contracts[name] = (run.directory.run_id, value)
 
 
 def run_inventory_rows(runs: tuple[RecordedRun, ...]) -> list[dict[str, Any]]:
@@ -390,6 +438,11 @@ def run_summary_rows(
         resources = _mapping(run.completion, "resources")
         training_time = _number(timing, "training_only")
         window = run_curves[-3:]
+        late = [
+            row
+            for row in run_curves
+            if int(row["training_interactions"]) > 0.8 * final_interactions
+        ]
         summaries.append(
             {
                 **_identity_row(run),
@@ -413,6 +466,15 @@ def run_summary_rows(
                 "episodes_to_convergence": _episodes_to_convergence(
                     run, convergence["convergence_interactions"]
                 ),
+                "episodes_to_confirmation": _episodes_to_convergence(
+                    run, convergence["confirmation_interactions"]
+                ),
+                "late_evaluation_count": len(late),
+                "late_completion_rate": float(
+                    np.mean(_float_array(late, "completion_rate"))
+                ),
+                "late_mean_return": float(np.mean(_float_array(late, "mean_return"))),
+                "late_minimum_return": float(np.min(_float_array(late, "mean_return"))),
                 "restricted_episodes_to_convergence": _episodes_to_convergence(
                     run, convergence["restricted_convergence_interactions"]
                 ),
@@ -470,6 +532,10 @@ def convergence_summary(curve: list[TableRow], *, experiment: Experiment) -> Tab
                 "censored": False,
                 "convergence_interactions": int(first["training_interactions"]),
                 "convergence_duration": float(first["training_duration"]),
+                "confirmation_interactions": int(
+                    ordered[index + 2]["training_interactions"]
+                ),
+                "confirmation_duration": float(ordered[index + 2]["training_duration"]),
                 "restricted_convergence_interactions": int(
                     first["training_interactions"]
                 ),
@@ -481,6 +547,8 @@ def convergence_summary(curve: list[TableRow], *, experiment: Experiment) -> Tab
         "censored": True,
         "convergence_interactions": None,
         "convergence_duration": None,
+        "confirmation_interactions": None,
+        "confirmation_duration": None,
         "restricted_convergence_interactions": int(final["training_interactions"]),
         "restricted_convergence_duration": float(final["training_duration"]),
     }
@@ -502,22 +570,43 @@ def normalized_curve_area(curve: list[TableRow], metric: str) -> float:
     )
 
 
-def descriptive_statistics(values: list[float]) -> DescriptiveStatistics:
+def descriptive_statistics(
+    values: list[float],
+    *,
+    seed: int = 0,
+    resamples: int = 10_000,
+    exhaustive: bool | None = None,
+) -> DescriptiveStatistics:
     """
-    Compute root dispersion and an exhaustive percentile bootstrap interval.
+    Compute dispersion and a percentile interval by resampling whole roots.
+
+    Exhaustive enumeration preserves the historical analysis for up to six
+    roots. Larger samples use the declared number of seeded resamples; callers
+    can explicitly request that method for a study with fewer observed values.
+    Neither enumeration nor sampling makes inferential coverage exact.
     """
     array = np.asarray(values, dtype=np.float64)
     if array.ndim != 1 or len(array) == 0 or not np.all(np.isfinite(array)):
         raise ValueError("descriptive values must be one non-empty finite vector.")
-    if len(array) > 6:
-        raise ValueError("exhaustive root bootstrap supports at most six roots.")
-    bootstrap_means = np.fromiter(
-        (
-            float(np.mean(array[list(indices)]))
-            for indices in itertools.product(range(len(array)), repeat=len(array))
-        ),
-        dtype=np.float64,
-    )
+    if exhaustive is None:
+        exhaustive = len(array) <= 6
+    if exhaustive:
+        if len(array) > 6:
+            raise ValueError("exhaustive root bootstrap supports at most six roots.")
+        bootstrap_means = np.fromiter(
+            (
+                float(np.mean(array[list(indices)]))
+                for indices in itertools.product(range(len(array)), repeat=len(array))
+            ),
+            dtype=np.float64,
+        )
+    else:
+        if resamples < 1:
+            raise ValueError("bootstrap resamples must be positive.")
+        indices = np.random.default_rng(seed).integers(
+            len(array), size=(resamples, len(array))
+        )
+        bootstrap_means = array[indices].mean(axis=1)
     return DescriptiveStatistics(
         count=len(array),
         mean=float(np.mean(array)),
@@ -535,7 +624,11 @@ def descriptive_statistics(values: list[float]) -> DescriptiveStatistics:
 
 
 def cell_summary_rows(
-    summaries: list[TableRow], *, experiment: Experiment
+    summaries: list[TableRow],
+    *,
+    experiment: Experiment,
+    seed: int = 0,
+    resamples: int = 10_000,
 ) -> list[dict[str, Any]]:
     """
     Summarize root-level cells and retain explicit completion denominators.
@@ -557,6 +650,8 @@ def cell_summary_rows(
         "end_to_end_duration",
         "collection_throughput",
         "training_throughput",
+        "late_completion_rate",
+        "late_mean_return",
     )
     output: list[dict[str, Any]] = []
     for identity, rows in sorted(grouped.items(), key=lambda item: str(item[0])):
@@ -579,11 +674,25 @@ def cell_summary_rows(
             if row["completed_lap_time_mean"] is not None
         ]
         result["completed_lap_time"] = (
-            asdict(descriptive_statistics(lap_times)) if lap_times else None
+            asdict(
+                descriptive_statistics(
+                    lap_times,
+                    seed=seed,
+                    resamples=resamples,
+                    exhaustive=experiment == 1,
+                )
+            )
+            if lap_times
+            else None
         )
         for metric in metrics:
             result[metric] = asdict(
-                descriptive_statistics([float(row[metric]) for row in rows])
+                descriptive_statistics(
+                    [float(row[metric]) for row in rows],
+                    seed=seed,
+                    resamples=resamples,
+                    exhaustive=experiment == 1,
+                )
             )
         output.append(result)
     return output
@@ -707,66 +816,19 @@ def curvature_control_rows(
     experiment: Experiment,
 ) -> list[TableRow]:
     """
-    Aggregate every retained final-trajectory row into circuit curvature quartiles.
+    Aggregate every root's final drive, separating straights from curved groups.
+
+    Experiment 2 uses only final test drives. The summaries argument remains
+    accepted for callers of the original analysis API; no representative-root
+    selection filters the evidence anymore.
     """
-    selected = set(representative_run_ids(summaries, experiment=experiment).values())
-    output: list[TableRow] = []
-    for run in runs:
-        if run.directory.run_id not in selected:
-            continue
-        final_interactions = int(run.completion["training_interactions"])
-        grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
-        for trajectory in run.trajectories:
-            evaluation = trajectory.get("evaluation")
-            if not isinstance(evaluation, dict):
-                continue
-            if _integer(evaluation, "training_interactions") != final_interactions:
-                continue
-            episode = _mapping(evaluation, "episode")
-            transitions = trajectory.get("transitions")
-            if not isinstance(transitions, list):
-                raise RunRecordingError("trajectory transitions must be a list.")
-            geometry = _mapping(episode, "circuit_geometry")
-            quantiles = _mapping(_mapping(geometry, "absolute_curvature"), "quantiles")
-            edges = (
-                _number(quantiles, "q25"),
-                _number(quantiles, "q50"),
-                _number(quantiles, "q75"),
-            )
-            for transition in transitions:
-                if not isinstance(transition, dict):
-                    raise RunRecordingError("trajectory row must be an object.")
-                curvature = abs(_number(transition, "current_curvature"))
-                bin_index = int(np.searchsorted(edges, curvature, side="right"))
-                grouped[(f"q{bin_index + 1}", _string(episode, "outcome"))].append(
-                    transition
-                )
-        for (curvature_bin, outcome), transitions in sorted(grouped.items()):
-            output.append(
-                {
-                    **_identity_row(run),
-                    "curvature_bin": curvature_bin,
-                    "outcome": outcome,
-                    "sample_count": len(transitions),
-                    "mean_speed": float(
-                        np.mean([_number(row, "speed") for row in transitions])
-                    ),
-                    "mean_throttle": float(
-                        np.mean(
-                            [_number(row, "action", index=0) for row in transitions]
-                        )
-                    ),
-                    "mean_absolute_steering": float(
-                        np.mean(
-                            [
-                                abs(_number(row, "action", index=1))
-                                for row in transitions
-                            ]
-                        )
-                    ),
-                }
-            )
-    return sorted(output, key=_table_sort_key)
+    from .driving import FinalDrive
+
+    return [
+        row
+        for drive in FinalDrive.from_runs(runs, experiment=experiment)
+        for row in drive.curvature_rows()
+    ]
 
 
 def update_rows(runs: tuple[RecordedRun, ...]) -> list[TableRow]:

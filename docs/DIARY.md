@@ -2181,3 +2181,27 @@ matrix tests then passed. No learning targets, rewards or physics changed.
 related config/matrix/training tests.
 
 **Commit**: `feature: extend experiment matrices without changing learning [ai]`.
+
+
+## 2026-09-15 ? Root-level comparisons and final control analysis
+
+**Task**: Make the analyses support the combined size matrix and ten-root
+observation study, and answer convergence and learned-control questions.
+
+**Result**: Added seeded whole-root bootstrap intervals for Experiment 2 while
+preserving exhaustive Experiment 1 intervals; all size/algorithm contrasts;
+first-attainment versus confirmation costs; a fixed final-20% stability window;
+common-budget records; all-root final controls, straight/unique-positive curvature
+groups, equal circuit/root weighting, and pre-action distance alignment.
+Comparison panels retain individual roots and control traces identify fixed
+illustrative root/circuit choices. Mixed controlled settings are refused.
+
+**Validation**: Thirteen analysis/driving/plotting/integration tests pass,
+including ten-root resampling, constant paired contrasts, tied curvature,
+pre-action alignment and failure weighting. Regenerated analysis successfully
+reads the 45 original runs. Black, Ruff and Pyright pass.
+
+**Files**: `src/utils/analysis.py`, `src/utils/driving.py`,
+`src/utils/plotting.py`, `experiments/analyze_results.py`, related tests.
+
+**Commit**: `feature: compare root-level learning and final driving controls [ai]`.
