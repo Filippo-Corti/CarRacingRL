@@ -2,7 +2,7 @@
 
 import argparse
 import json
-from itertools import pairwise, product
+from itertools import pairwise
 from pathlib import Path
 
 import matplotlib
@@ -148,19 +148,9 @@ def result_figures():
             timing.append(durations.mean(axis=0))
 
     figure, axis = plt.subplots(figsize=(14, 5.5), layout="constrained")
-    # Enumerate every root resample, matching the five-root reporting protocol.
-    median_intervals = [
-        np.quantile(
-            [np.median(sample) for sample in product(values, repeat=len(values))],
-            [0.025, 0.975],
-        )
-        for values in finals
-    ]
     boxes = axis.boxplot(
         finals,
         patch_artist=True,
-        notch=True,
-        conf_intervals=median_intervals,
         showfliers=True,
         widths=0.6,
     )
@@ -188,8 +178,7 @@ def result_figures():
     for x in (4.5, 8.5):
         axis.axvline(x, color="#B8BFC7", linewidth=0.8)
     figure.supxlabel(
-        "Boxes: quartiles and median; notches: 95% bootstrap median interval\n"
-        "Whiskers: 1.5 × IQR; points: outliers only",
+        "Boxes: quartiles and median\n" "Whiskers: 1.5 × IQR; points: outliers only",
         fontsize=11,
     )
     save(figure, "final_returns")

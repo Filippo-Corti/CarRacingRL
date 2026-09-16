@@ -2490,3 +2490,20 @@ in a compact two-column table, with more space for the landscape chart.
 **Files**: `README.md`, `docs/DIARY.md`.
 
 **Commit**: `docs: pair README racing view with training returns [ai]`.
+
+
+## 2026-09-16 - Remove the RQ1.1 boxplot notches
+
+**Task**: Use ordinary boxplots for Experiment 1 final driving performance.
+
+**Result**: Removed the notches and their bootstrap calculation, updated the
+figure caption, and regenerated the RQ1.1 image. Kept outlier points and the
+notebook's 1200-pixel display limit.
+
+**Validation**: Visually checked the regenerated plot; Black and diff whitespace
+checks pass. The underlying results and notebook text are unchanged.
+
+**Files**: `experiments/presentation_figures.py`,
+`docs/figures/presentation/final_returns.png`, `docs/DIARY.md`.
+
+**Commit**: `docs: remove final performance boxplot notches [ai]`.
