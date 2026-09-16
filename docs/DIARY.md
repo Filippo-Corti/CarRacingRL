@@ -2373,3 +2373,46 @@ training configuration or recorded result values changed.
 `docs/figures/presentation/racing_simulation.png`, `docs/DIARY.md`.
 
 **Commit**: `fix: refine presentation figures and steering display [ai]`.
+
+
+## 2026-09-16 - Complete the Experiment 2 presentation notebook
+
+**Task**: Fill the remaining presentation notebook's TODOs and verify its
+scientific claims, following the approved presentation styling and widths.
+
+**Result**: Completed `03-experiment-2.ipynb` with separate exploratory training
+and deterministic validation return figures, plus speed/throttle traces for
+root 0 on test circuit 0. Both image pairs use shared 1200-pixel rows and STIX
+scientific fonts. Added a short, executed exact two-sided Wilcoxon snippet:
+313 mutually completed circuit pairs aggregate to ten root differences,
+giving W=8 and p=0.048828125. Recomputed the matched speed advantage of 2.21
+seconds with a seed-0 95% root-bootstrap interval of [0.61, 3.72] seconds.
+Filled the threshold, control-hypothesis and limitations sections. Qualified
+generalization to the generator family, distinguished uncertain completion
+and first-attainment differences from the lap-time result, and separated
+illustrative throttle traces from all-root steering smoothness. Corrected
+typos and clarified that equal hidden widths do not equal parameter counts.
+Shared the existing scientific plotting style between the two figure scripts.
+
+**Validation**: Executed the notebook in `.venv`. Recomputed final performance,
+all twenty first-attainment boundaries, late completion and recorded durations
+from revised raw runs; their point estimates agree with the report. Recomputed
+the completion/return intervals and paired completion/attainment intervals.
+The seed-0 reproduction in root-identity order gives a LiDAR-minus-Frenet
+completion interval of [-0.94, 2.81] percentage points and a first-attainment
+interval of [-10k, 195k], with slightly different endpoints from the report;
+the notebook uses the reproduced values and the uncertainty conclusions hold.
+Matched
+all ten root-level lap differences and circuit counts to the existing CSV.
+Inspected all four figures and verified the two paired rows through HTML export.
+Notebook schema, Python syntax, local image links, absence of TODOs, Black,
+Ruff, Pyright and diff whitespace checks pass. Historical Experiment 2 runs
+are excluded; no training or algorithm code changed.
+
+**Files**: `03-experiment-2.ipynb`, `experiments/presentation_generalization.py`,
+`experiments/presentation_figures.py`, four `experiment_2_*.png` images under
+`docs/figures/presentation/`, `docs/tables/presentation_experiment_2_statistics.json`,
+`docs/DIARY.md`. Regenerate with
+`.venv/Scripts/python.exe -m experiments.presentation_generalization --seed 0`.
+
+**Commit**: `docs: complete Experiment 2 presentation notebook [ai]`.

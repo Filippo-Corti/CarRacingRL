@@ -1,0 +1,151 @@
+{
+  "frenet": {
+    "completed": 315,
+    "all_circuits_roots": 6,
+    "mean_return": 221.36179883792664,
+    "root_completion_rates": [
+      1.0,
+      0.96875,
+      1.0,
+      0.96875,
+      0.96875,
+      0.9375,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "completion_95_interval": [
+      0.96875,
+      0.996875
+    ],
+    "return_95_interval": [
+      217.23688304398277,
+      226.02652170542953
+    ],
+    "return_sd": 7.475834406150369,
+    "mean_progress": 0.9903128870293809,
+    "mean_lap_time": 25.64182016129032,
+    "first_interactions": [
+      150000,
+      650000,
+      200000,
+      100000,
+      200000,
+      100000,
+      100000,
+      100000,
+      150000,
+      100000
+    ],
+    "mean_first_interactions": 185000.0,
+    "late_validation_completion": 0.9203125,
+    "total_end_to_end_minutes": 58.80244260999998
+  },
+  "lidar": {
+    "completed": 318,
+    "all_circuits_roots": 9,
+    "mean_return": 233.20897138281126,
+    "root_completion_rates": [
+      1.0,
+      1.0,
+      0.9375,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "completion_95_interval": [
+      0.98125,
+      1.0
+    ],
+    "return_95_interval": [
+      229.10945821834702,
+      238.0539012101685
+    ],
+    "return_sd": 7.755348050495733,
+    "mean_progress": 0.9977511674190034,
+    "mean_lap_time": 23.446416666666668,
+    "first_interactions": [
+      100000,
+      100000,
+      150000,
+      150000,
+      100000,
+      100000,
+      100000,
+      200000,
+      50000,
+      50000
+    ],
+    "mean_first_interactions": 110000.0,
+    "late_validation_completion": 0.975,
+    "total_end_to_end_minutes": 67.87953274833332
+  },
+  "paired_intervals": {
+    "root_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "bootstrap_seed": 0,
+    "bootstrap_resamples": 10000,
+    "lidar_minus_frenet_completion_95_interval": [
+      -0.009375,
+      0.028125
+    ],
+    "frenet_minus_lidar_first_interactions_95_interval": [
+      -10000.0,
+      195000.0
+    ]
+  },
+  "matched_laps": {
+    "paired_circuits": 313,
+    "paired_roots": 10,
+    "root_differences": [
+      1.6450000000000002,
+      -0.40645161290322607,
+      5.214666666666667,
+      2.211612903225807,
+      4.856774193548388,
+      1.6280000000000001,
+      1.10375,
+      -2.7975000000000008,
+      2.5012499999999998,
+      6.12
+    ],
+    "counts_per_root": [
+      32,
+      31,
+      30,
+      31,
+      31,
+      30,
+      32,
+      32,
+      32,
+      32
+    ],
+    "mean_frenet_minus_lidar": 2.2077102150537633,
+    "bootstrap_seed": 0,
+    "bootstrap_resamples": 10000,
+    "bootstrap_95_interval": [
+      0.6098360215053762,
+      3.718989543010752
+    ],
+    "wilcoxon_statistic": 8.0,
+    "wilcoxon_pvalue": 0.048828125,
+    "wilcoxon_method": "exact",
+    "alternative": "two-sided"
+  }
+}

@@ -305,14 +305,10 @@ def result_figures():
     save(figure, "runtime_phases")
 
 
-def main():
+def configure_style():
     """
-    Generate all presentation images using an explicit track seed.
+    Apply the scientific font and axes styling shared by presentation figures.
     """
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--seed", required=True, type=int)
-    arguments = parser.parse_args()
-    OUTPUT.mkdir(parents=True, exist_ok=True)
     plt.rcParams.update(
         {
             "font.family": "serif",
@@ -324,6 +320,17 @@ def main():
             "axes.spines.right": False,
         }
     )
+
+
+def main():
+    """
+    Generate all presentation images using an explicit track seed.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--seed", required=True, type=int)
+    arguments = parser.parse_args()
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    configure_style()
     track_figures(arguments.seed)
     result_figures()
 
