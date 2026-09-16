@@ -59,9 +59,9 @@ ALGORITHMS = ("reinforce", "a2c", "ppo")
 # A2C and PPO by `run_*_training`, so only the actor's capacity varies.
 ACTORS = {
     "tiny": TINY_ACTOR_CONFIG,
-    # "small": SMALL_ACTOR_CONFIG,
-    # "medium": MEDIUM_ACTOR_CONFIG,
-    # "large": LARGE_ACTOR_CONFIG,
+    "small": SMALL_ACTOR_CONFIG,
+    "medium": MEDIUM_ACTOR_CONFIG,
+    "large": LARGE_ACTOR_CONFIG,
 }
 PPO_SELECTION_ACTORS = ("small", "medium", "large")
 ENVIRONMENT_WORKERS = 8
