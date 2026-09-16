@@ -2295,3 +2295,39 @@ directories, `docs/tables/experiment_1_thresholds.csv`,
 `docs/tables/experiment_2_matched_laps.csv`, `TODO.md`, `docs/DIARY.md`.
 
 **Commit**: `docs: rewrite final experiment analyses [ai]`.
+
+
+## 2026-09-16 - Complete the project presentation notebooks
+
+**Task**: Fill every TODO in the problem-formalization and Experiment 1
+presentation notebooks and check their scientific content against the project
+implementation and saved experiment evidence.
+
+**Result**: Added ten static, print-resolution figures with STIX scientific
+fonts: three generated circuits in one grid, a broadcast-renderer screenshot,
+twelve final-return box plots, separate training/evaluation learning curves for
+each algorithm, and four-part normalized timing bars. Notebook Markdown links
+the figures; plotting code remains in a seeded generation script. Added short
+inline driving loops for the scripted controller and the final root-0 A2C
+Medium actor, with checkpoint restoration and frozen normalization handled by
+a small demo utility. Completed the discussion and limitations. Corrected the
+REINFORCE gradient, reward indexing, local-curvature description, termination
+and GAE boundary explanations, tiny-actor failure count and threshold-attainment
+numbers. Kept A2C Medium as the best mean final performer with its very small
+advantage qualified, and separated full-budget cost from threshold cost.
+
+**Validation**: Executed both notebooks in the repository `.venv`; the reference
+controller completed in 28.00 seconds and A2C Medium root 0 in 24.04 seconds.
+Checked all twelve final-return means, standard deviations, completion counts
+and conditional lap times against saved evaluations; all duration/throughput
+table entries match completion records. Visually inspected the principal
+figures. Notebook schemas, Python syntax, local links, absence of TODOs, Black,
+Ruff, Pyright and diff whitespace checks pass. No training configuration or
+algorithm implementation changed.
+
+**Files**: `01-problem-formalization.ipynb`, `02-experiment-1.ipynb`,
+`experiments/presentation_figures.py`, `experiments/presentation_demo.py`,
+`docs/figures/presentation/`, `docs/DIARY.md`. Regenerate figures with
+`.venv/Scripts/python.exe -m experiments.presentation_figures --seed 0`.
+
+**Commit**: `docs: complete project presentation notebooks [ai]`.
