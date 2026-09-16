@@ -356,7 +356,8 @@ class BroadcastRacingRenderer:
         centre = width / 2.0
         base = height - 148
         limit = max(radians(self.vehicle.max_steering_angle), 1e-9)
-        lean = min(max(frame.state.steering_angle / limit, -1.0), 1.0) * 30.0
+        # Positive steering turns left, toward decreasing screen coordinates.
+        lean = -min(max(frame.state.steering_angle / limit, -1.0), 1.0) * 30.0
 
         # Front wheels, set wide and turned with the steering. They sit behind
         # the nose so the nose's own edge cuts across them.
@@ -525,7 +526,8 @@ class BroadcastRacingRenderer:
         )
         limit = max(radians(self.vehicle.max_steering_angle), 1e-9)
         fraction = min(max(frame.state.steering_angle / limit, -1.0), 1.0)
-        marker = int(track_rect.centerx + fraction * track_rect.width / 2.0)
+        # Positive steering turns left, toward decreasing screen coordinates.
+        marker = int(track_rect.centerx - fraction * track_rect.width / 2.0)
         pygame.draw.circle(surface, _ACCENT, (marker, track_rect.centery), 6)
         self._fonts.write(
             surface,

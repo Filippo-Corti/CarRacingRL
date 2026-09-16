@@ -2344,3 +2344,32 @@ algorithm implementation changed.
 **Files**: `01-problem-formalization.ipynb`, `docs/DIARY.md`.
 
 **Commit**: `docs: reduce presentation screenshot display width [ai]`.
+
+
+## 2026-09-16 - Refine presentation plots and steering display
+
+**Task**: Invert the broadcast steering visualization and constrain the
+presentation figures to the requested notebook widths.
+
+**Result**: Positive steering now shifts both the cockpit lean and the steering
+marker left on screen. Replaced the final-return scatter overlay with notched
+box plots and outlier points only; notches use exhaustive five-root bootstrap
+median intervals, avoiding clipped normal-approximation intervals. Limited the
+box-plot display to 1200 pixels and the phase-percentage chart to 800 pixels.
+Placed each of the three training/evaluation image pairs in a shared 1200-pixel
+flex row. Regenerated the affected static images and refreshed both notebook
+demo outputs.
+
+**Validation**: All ten rendering tests pass. Both notebook demos complete with
+unchanged lap times (28.00 seconds for the scripted controller and 24.04 seconds
+for A2C Medium root 0). HTML export confirms three paired image rows and both
+standalone width limits. Notebook schema/link checks, Black, Ruff, Pyright and
+diff whitespace checks pass. Inspected the regenerated box plots; no physics,
+training configuration or recorded result values changed.
+
+**Files**: `src/envs/racing/rendering/broadcast.py`,
+`experiments/presentation_figures.py`, both presentation notebooks,
+`docs/figures/presentation/final_returns.png`,
+`docs/figures/presentation/racing_simulation.png`, `docs/DIARY.md`.
+
+**Commit**: `fix: refine presentation figures and steering display [ai]`.

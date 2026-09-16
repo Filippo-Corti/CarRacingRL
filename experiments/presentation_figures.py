@@ -2,7 +2,7 @@
 
 import argparse
 import json
-from itertools import pairwise
+from itertools import pairwise, product
 from pathlib import Path
 
 import matplotlib
@@ -148,12 +148,28 @@ def result_figures():
             timing.append(durations.mean(axis=0))
 
     figure, axis = plt.subplots(figsize=(14, 5.5), layout="constrained")
-    boxes = axis.boxplot(finals, patch_artist=True, showfliers=False, widths=0.6)
-    offsets = np.linspace(-0.16, 0.16, 5)
-    for index, (box, values) in enumerate(zip(boxes["boxes"], finals, strict=True)):
+    # Enumerate every root resample, matching the five-root reporting protocol.
+    median_intervals = [
+        np.quantile(
+            [np.median(sample) for sample in product(values, repeat=len(values))],
+            [0.025, 0.975],
+        )
+        for values in finals
+    ]
+    boxes = axis.boxplot(
+        finals,
+        patch_artist=True,
+        notch=True,
+        conf_intervals=median_intervals,
+        showfliers=True,
+        widths=0.6,
+    )
+    for index, box in enumerate(boxes["boxes"]):
         color = COLORS[index // 4]
         box.set(facecolor=color, alpha=0.45, edgecolor=color)
-        axis.scatter(index + 1 + offsets, values, color=color, s=25, zorder=3)
+        boxes["fliers"][index].set(
+            marker="o", markerfacecolor=color, markeredgecolor=color, markersize=4
+        )
     for median in boxes["medians"]:
         median.set(color="#202A35", linewidth=1.7)
     labels = [f"{NAMES[a]}\n{s.title()}" for a in ALGORITHMS for s in SIZES]
@@ -172,7 +188,8 @@ def result_figures():
     for x in (4.5, 8.5):
         axis.axvline(x, color="#B8BFC7", linewidth=0.8)
     figure.supxlabel(
-        "Boxes: quartiles and median; whiskers: 1.5 × IQR; dots: five individual roots",
+        "Boxes: quartiles and median; notches: 95% bootstrap median interval\n"
+        "Whiskers: 1.5 × IQR; points: outliers only",
         fontsize=11,
     )
     save(figure, "final_returns")
