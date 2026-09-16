@@ -1,19 +1,17 @@
 # RL Car Racing
 
-I built a continuous-control racing environment with procedurally generated
-circuits, simplified vehicle physics, and neural policies trained with
-REINFORCE, A2C+GAE, and PPO. The goal is to finish a lap quickly while staying
-on the track.
+The project presents a continuous-control racing environment with procedurally generated circuits and simplified vehicle physics.
+It then describes how neural policies trained with REINFORCE, A2C+GAE, and PPO tackle the problem of finishing a lap as fast as possible.
 
-Two experiments study how actor-network size affects learning on one fixed
-circuit, and how Frenet coordinates compare with LiDAR observations on unseen
-circuits. Small and medium A2C actors achieve the best final performance on the
-fixed circuit, while PPO reaches the task threshold fastest. Both observations
-generalize well within the circuit-generator family; LiDAR achieves faster laps.
+Two experiments are run within the project:
+* Experiment 1, that studies how actor-network size (tiny, small, medium, large) and training algorithm (REINFORCE, A2C, PPO) affect learning on one fixed circuit.
+* Experiment 2, that compares Frenet coordinates with LiDAR observations on unseen, randomly generated circuits.
+
+<img src="docs/figures/presentation/racing_simulation.png" alt="Broadcast view of the 3D racing environment" width="600">
 
 ## Presentation notebooks
 
-Read these three notebooks in order:
+To get a better idea of the modelled problem and the results, you can read these three notebooks in order:
 
 1. [Problem formalization](01-problem-formalization.ipynb): circuits, observations,
    dynamics, rewards, policies, and learning algorithms.

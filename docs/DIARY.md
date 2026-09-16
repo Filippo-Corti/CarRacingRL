@@ -2461,3 +2461,18 @@ the width limit. Notebook schema, TODO removal, Black, Ruff, Pyright,
 `requirements.txt`, `docs/DIARY.md`.
 
 **Commit**: `feature: show paired racing policies in the presentation [ai]`.
+
+
+## 2026-09-16 - Add the racing view to the README
+
+**Task**: Add a picture of the 3D environment to the README.
+
+**Result**: Placed the existing broadcast-view screenshot below the project
+synthesis, with a compact display width of 600 pixels and descriptive alt text.
+
+**Validation**: Verified the image path and diff whitespace. Documentation-only
+change using the existing presentation asset.
+
+**Files**: `README.md`, `docs/DIARY.md`.
+
+**Commit**: `docs: show racing environment in README [ai]`.
