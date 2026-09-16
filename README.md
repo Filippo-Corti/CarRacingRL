@@ -7,7 +7,12 @@ Two experiments are run within the project:
 * Experiment 1, that studies how actor-network size (tiny, small, medium, large) and training algorithm (REINFORCE, A2C, PPO) affect learning on one fixed circuit.
 * Experiment 2, that compares Frenet coordinates with LiDAR observations on unseen, randomly generated circuits.
 
-<img src="docs/figures/presentation/racing_simulation.png" alt="Broadcast view of the 3D racing environment" width="600">
+<table>
+  <tr>
+    <td width="40%"><img src="docs/figures/presentation/racing_simulation.png" alt="Broadcast view of the 3D racing environment" width="400"></td>
+    <td width="60%"><img src="docs/figures/presentation/ppo_training_returns.png" alt="PPO training returns for the different actor-network sizes" width="600"></td>
+  </tr>
+</table>
 
 ## Presentation notebooks
 

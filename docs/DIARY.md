@@ -2476,3 +2476,17 @@ change using the existing presentation asset.
 **Files**: `README.md`, `docs/DIARY.md`.
 
 **Commit**: `docs: show racing environment in README [ai]`.
+
+
+## 2026-09-16 - Pair the README racing view with a learning curve
+
+**Task**: Place a training returns plot beside the racing screenshot.
+
+**Result**: Arranged the broadcast view and existing PPO training returns plot
+in a compact two-column table, with more space for the landscape chart.
+
+**Validation**: Verified both image paths and diff whitespace.
+
+**Files**: `README.md`, `docs/DIARY.md`.
+
+**Commit**: `docs: pair README racing view with training returns [ai]`.
