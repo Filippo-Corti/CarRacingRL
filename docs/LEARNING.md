@@ -113,6 +113,7 @@ O_t ∈ ℝ^{d_O}
 ```
 
 Experiment 1 changes $(h_1,h_2)$:
+- Tiny actor: `(8, 8)`
 - Small actor: `(32, 32)`;
 - Medium actor: `(64, 64)`;
 - Large actor: `(256, 256)`.
