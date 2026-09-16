@@ -2437,3 +2437,27 @@ repository-map paths and diff whitespace. Documentation-only change.
 **Files**: `README.md`, `docs/DIARY.md`.
 
 **Commit**: `docs: simplify README and map the repository [ai]`.
+
+
+## 2026-09-16 - Show both observation policies driving side by side
+
+**Task**: Replace the Experiment 2 presentation TODO with a simultaneous
+Frenet/LiDAR driving demo using the broadcast view.
+
+**Result**: Added a visible simulation loop loading both final root-0 PPO
+policies and their frozen observation normalizers. Both agents launch from the
+same canonical pose on test circuit 0 and advance together; each completed
+agent's last frame stays visible while the other finishes. A small notebook
+viewer displays labeled broadcast frames in one row capped at 1200 pixels.
+Declared the already-installed Pillow dependency used to encode those frames.
+
+**Validation**: Executed the full notebook in `.venv`; both agents complete,
+with Frenet at 26.92 seconds and LiDAR at 24.20 seconds, matching their recorded
+test results. Verified the saved paired output contains two labeled views and
+the width limit. Notebook schema, TODO removal, Black, Ruff, Pyright,
+`pip check` and diff whitespace checks pass. No physics or training changed.
+
+**Files**: `03-experiment-2.ipynb`, `experiments/presentation_demo.py`,
+`requirements.txt`, `docs/DIARY.md`.
+
+**Commit**: `feature: show paired racing policies in the presentation [ai]`.

@@ -1,9 +1,14 @@
-"""Restore a saved actor and its frozen normalization for presentation demos."""
+"""Restore saved policies and display their racing views in presentation demos."""
 
 import json
+from base64 import b64encode
+from html import escape
+from io import BytesIO
 from pathlib import Path
 
 import torch
+from IPython.display import HTML, display
+from PIL import Image
 
 from agents.models import ActorNetwork
 from configs import ActorConfig
@@ -60,3 +65,47 @@ class SavedActor:
             ObservationNormalizerStateRecord(**state["normalizer"])
         )
         return cls(actor_network, observation_normalizer)
+
+
+class RacingPairViewer:
+    """
+    Update two labeled racing views together in one width-limited notebook row.
+
+    Fields:
+        * labels: Captions identifying the two policies.
+        * width: Maximum combined display width in pixels.
+        * display_handle: Notebook output updated in place during the demo.
+    """
+
+    def __init__(self, frames, *, labels, width=1200):
+        self.labels = labels
+        self.width = width
+        display_handle = display(self._html(frames), display_id=True)
+        # Updating in place requires the display handle provided by a notebook.
+        assert display_handle is not None
+        self.display_handle = display_handle
+
+    def update(self, frames):
+        """
+        Replace both displayed frames while retaining the same output row.
+        """
+        self.display_handle.update(self._html(frames))
+
+    def _html(self, frames):
+        panels = []
+        for label, frame in zip(self.labels, frames, strict=True):
+            buffer = BytesIO()
+            Image.fromarray(frame).save(buffer, format="JPEG")
+            encoded = b64encode(buffer.getvalue()).decode("ascii")
+            panels.append(
+                '<div style="width:50%;min-width:0;text-align:center;">'
+                f'<p style="font-family:serif;font-size:18px;">{escape(label)}</p>'
+                f'<img src="data:image/jpeg;base64,{encoded}" '
+                f'alt="{escape(label)} racing view" style="width:100%;">'
+                "</div>"
+            )
+        return HTML(
+            f'<div style="display:flex;max-width:{self.width}px;width:100%;">'
+            + "".join(panels)
+            + "</div>"
+        )
