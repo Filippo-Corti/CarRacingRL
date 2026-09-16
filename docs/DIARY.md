@@ -2331,3 +2331,16 @@ algorithm implementation changed.
 `.venv/Scripts/python.exe -m experiments.presentation_figures --seed 0`.
 
 **Commit**: `docs: complete project presentation notebooks [ai]`.
+
+
+## 2026-09-16 - Reduce the presentation screenshot display size
+
+**Task**: Make the broadcast simulation screenshot smaller in the formalization notebook.
+
+**Result**: Set its notebook display width to 600 pixels, preserving the original image resolution.
+
+**Validation**: Verified the notebook schema and the single image-reference change.
+
+**Files**: `01-problem-formalization.ipynb`, `docs/DIARY.md`.
+
+**Commit**: `docs: reduce presentation screenshot display width [ai]`.
