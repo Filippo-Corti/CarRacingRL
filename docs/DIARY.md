@@ -2416,3 +2416,24 @@ are excluded; no training or algorithm code changed.
 `.venv/Scripts/python.exe -m experiments.presentation_generalization --seed 0`.
 
 **Commit**: `docs: complete Experiment 2 presentation notebook [ai]`.
+
+
+## 2026-09-16 - Simplify the repository README
+
+**Task**: Replace the accumulated README notes with a short project synthesis,
+the three presentation notebooks, and a repository map, preserving the original
+Project Overview.
+
+**Result**: Added a concise account of the racing environment, both scientific
+studies and their principal findings. Linked the presentation notebooks in
+reading order and described the implementation, scripts, runnable notebooks,
+tracks, results, documentation, tests and project configuration. Retained the
+original assignment overview unchanged and removed the older notes, commands,
+plans and suggestions from the README.
+
+**Validation**: Verified the preserved overview, notebook/document links,
+repository-map paths and diff whitespace. Documentation-only change.
+
+**Files**: `README.md`, `docs/DIARY.md`.
+
+**Commit**: `docs: simplify README and map the repository [ai]`.
