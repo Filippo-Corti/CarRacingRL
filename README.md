@@ -9,8 +9,8 @@ Two experiments are run within the project:
 
 <table>
   <tr>
-    <td width="40%"><img src="docs/figures/presentation/racing_simulation.png" alt="Broadcast view of the 3D racing environment" width="400"></td>
-    <td width="60%"><img src="docs/figures/presentation/ppo_training_returns.png" alt="PPO training returns for the different actor-network sizes" width="600"></td>
+    <td width="40%"><img src="docs/figures/presentation/racing_simulation.png" alt="Broadcast view of the 3D racing environment" width="480"></td>
+    <td width="60%"><img src="docs/figures/presentation/ppo_training_returns.png" alt="PPO training returns for the different actor-network sizes" width="720"></td>
   </tr>
 </table>
 
