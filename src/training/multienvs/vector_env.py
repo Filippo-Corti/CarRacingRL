@@ -99,6 +99,7 @@ class VectorRacingState:
 class _RacingWorkerEnv(gym.Env[NDArray[np.float32], dict[str, Any]]):
     """
     Own one replaceable racing environment inside a persistent worker process.
+    It's a wrapper around `RacingEnv`, that adds a reset schedule and an enabled action flag.
 
     The additional `enabled` action flag lets the parent leave a finished worker
     parked while other workers continue. Parked calls do not advance dynamics and
