@@ -99,7 +99,7 @@ class A2CTrainingEngine(TrainingEngine):
             self.training_interactions += step.interactions
             self.rollout.append_step(step.transitions)
             if step.finished:
-                # Reset the environment of the workers who have finished 
+                # Reset the environment of the workers who have finished
                 # their episode, so that we can keep collecting from them
                 reset_mask = np.zeros(self.worker_count, dtype=np.bool_)
                 reset_mask[list(step.finished)] = True

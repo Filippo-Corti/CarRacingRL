@@ -27,9 +27,9 @@ VectorInput = NDArray[np.float32] | Tensor
 @dataclass(frozen=True, slots=True)
 class TrainingTransition:
     """
-    Store the data that describes a transition from normalized_observation to 
+    Store the data that describes a transition from normalized_observation to
     next_normalized_observation, via env_action.
-    
+
     It retains normalized network inputs, raw policy actions,
     behaviour probabilities, and critic estimates required to reproduce an
     update.
