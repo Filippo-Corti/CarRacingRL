@@ -92,8 +92,8 @@ class RacingEnv(gym.Env[ObservationType, ActionType]):
         * config: The environment behaviour configuration.
         * track: The immutable sampled circuit data.
         * track_with_geometry: The track's interpolation, boundaries, and indexes.
-        * action_space: Normalized throttle/brake and steering controls.
-        * observation_space: The selected observation in float32 units.
+        * action_space: Normalized throttle/brake and steering controls (as a gym.spaces.Box).
+        * observation_space: The selected observation in float32 units (as a gym.spaces.Box) - it depends on config.observation_type.
         * lidar_observer: Ray caster, present only under LiDAR observation.
         * state: The current kinematic vehicle state.
     """
