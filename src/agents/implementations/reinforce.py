@@ -225,6 +225,9 @@ class ReinforceAgent(OnPolicyAgent):
     def _trajectory_loss(
         self, episode: Trajectory, standardized_returns: Tensor
     ) -> Tensor:
+        # Notice that the log probabilities are re-computed to track the gradient
+        # In REINFORCE, the policy hasn't changed between collection and update time,
+        # so we are effectively computing the same values twice
         log_probabilities = self._log_probabilities(episode)
         return -(log_probabilities * standardized_returns.detach()).sum()
 

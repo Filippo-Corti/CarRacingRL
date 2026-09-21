@@ -99,8 +99,8 @@ class A2CTrainingEngine(TrainingEngine):
             self.training_interactions += step.interactions
             self.rollout.append_step(step.transitions)
             if step.finished:
-                # A finished episode does not end the rollout: collection
-                # continues on a fresh episode until the rollout is full.
+                # Reset the environment of the workers who have finished 
+                # their episode, so that we can keep collecting from them
                 reset_mask = np.zeros(self.worker_count, dtype=np.bool_)
                 reset_mask[list(step.finished)] = True
                 self.envs_manager.reset_workers(reset_mask)
@@ -122,8 +122,6 @@ class A2CTrainingEngine(TrainingEngine):
         with self.timer.optimizing() as elapsed:
             output = self.agent.update(update_input)
         self.record_update(output, elapsed.seconds)
-        # The rollout is one object across its whole life, so the update does
-        # not consume it: emptying it here is what starts the next one.
         self.rollout.clear()
 
     def _collection_payload(self) -> dict[str, Any]:

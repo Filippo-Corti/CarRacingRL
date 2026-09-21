@@ -72,7 +72,7 @@ class ReinforceTrainingEngine(TrainingEngine):
             active_mask = self.active_worker_mask(allowance)
 
             if not active_mask.any():
-                # If there are no active workers, we should try to update the policy.
+                # If there are no active workers, we should check if we are done with the collection of trajectories.
                 # If the batch is full, we update and start a new wave.
                 # if the batch is not full, we start a new wave and continue collecting.
                 self.try_update(final=False)

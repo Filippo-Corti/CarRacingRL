@@ -280,10 +280,7 @@ $$
 $$
 
 > Standard REINFORCE attaches the full trajectory return to every score term.
-> GPOMDP instead uses every $G_t^i$, the **returns-to-go**. The inner sum that
-> defines $G_t^i$ is the second sum in the GPOMDP expression; the loss below
-> therefore implements the same estimator even though it only writes the outer
-> sum explicitly.
+> GPOMDP instead uses every $G_t^i$, the **returns-to-go**.
 > This distinction makes sure that probabilities are correcly aligned with the parts of the reward they contribute to, instead of assuming that all probabilities contribute to all of it.
 
 ### REINFORCE Pseudocode

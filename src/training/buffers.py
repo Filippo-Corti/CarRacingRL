@@ -27,11 +27,12 @@ VectorInput = NDArray[np.float32] | Tensor
 @dataclass(frozen=True, slots=True)
 class TrainingTransition:
     """
-    Store the detached transition data consumed by on-policy updates.
-
-    The training buffer retains normalized network inputs, raw policy actions,
+    Store the data that describes a transition from normalized_observation to 
+    next_normalized_observation, via env_action.
+    
+    It retains normalized network inputs, raw policy actions,
     behaviour probabilities, and critic estimates required to reproduce an
-    update. It is checkpoint state, not an experiment log record.
+    update.
 
     Fields:
         * normalized_observation: Exact network input before the action.
@@ -39,7 +40,7 @@ class TrainingTransition:
         * env_action: Bounded action sent to the environment.
         * reward: Environment reward returned after the action.
         * behaviour_log_probability: Collection-policy log probability.
-        * current_value: Critic value at the current observation, if used.
+        * current_value: Critic value at the current observation, if a critic is used.
         * next_value: Bootstrap value, zero at true termination.
         * terminated: Whether a genuine MDP ending occurred.
         * truncated: Whether the external time limit occurred.

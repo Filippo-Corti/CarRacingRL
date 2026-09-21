@@ -39,7 +39,7 @@ class CollectedStep:
     Fields:
         * transitions: One row per worker, or none where the worker was parked.
         * finished: Indices of workers whose episode ended on this step.
-        * interactions: Transitions that count against the training budget.
+        * interactions: Number of performed transitions. Can be used to count against the training budget.
     """
 
     transitions: MultiEnvTrainingTransition
