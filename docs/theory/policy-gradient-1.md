@@ -55,7 +55,7 @@ $$ \pi_{\mathbf{\theta}}^\star \in \text{arg} \max_{\pi_{\mathbf{\theta}} \in \P
 Which we can express as a maximization w.r.t. the parameters $\mathbf{\theta}$ directly:
 $$ \mathbf{\theta}^\star \in \text{arg} \max_{\mathbf{\theta} \in \Theta} J(\mathbf{\theta}) $$
 
-> Unlike **DQN**, **Policy Gradient** chooses to optimize parameters $\mathbf{\theta}$ directly, using *stochastic gradient descent*.
+> Unlike **DQN**, **Policy Gradient** chooses to optimize parameters $\mathbf{\theta}$ directly, using *stochastic gradient ascent*.
 
 ## The REINFORCE Algorithm
 
@@ -73,7 +73,7 @@ This quantity is called the **Score Function** (or *Eligibility Vector*) and mea
 We now introduce the first Policy-Gradient Algorithm: **REINFORCE**. \
 The idea behind REINFORCE is straightforward:
 1. Collect a batch of $n$ independent trajectories $\tau^1, \dots. \tau^n$ by playing the current policy $\pi_{\mathbf{\theta}_k}$.
-2. Use that batch to run an update step of **Gradient Descent** and update the policy parameters: 
+2. Use that batch to run an update step of **Gradient Ascent** and update the policy parameters: 
 $$ \mathbf{\theta}_{k+1} \leftarrow \mathbf{\theta}_k + \alpha \hat{\nabla} J(\mathbf{\theta}_k) $$
 3. Repeat for $k=0,1, \dots$.
 
