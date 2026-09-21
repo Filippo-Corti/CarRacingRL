@@ -14,17 +14,15 @@ In other words, the agent only reacts every $4$ simulation steps, choosing the a
 
 ## Environment State
 
-$$ s_t = (x_t, y_t, \theta_t, v_t, \delta_t, C, \ell_t, p_t, h_t) $$
+$$ s_t = (x_t, y_t, \theta_t, v_t, \delta_t, C, \ell_t) $$
 
 Where:
 * $x_t, y_t, \theta_t$ describe the current pose of the car (location and orientation).
 * $v_t, \delta_t$ describe the current internal state of the car (velocity and front-wheel angle).
 * $C$ is the configuration of the circuit, representing the environment. For more information on that, check [`TRACK.md`](TRACK.md).
-* $\ell_t$ is the episode lifecycle state, including elapsed agent steps and the start/finish progress that fixes the current lap.
-* $p_t$ is the accumulated signed episode progress.
-* $h_t$ is the recent progress history used by the stall rule.
+* $\ell_t$ is the episode lifecycle state: elapsed agent steps; the moving start/finish reference; accumulated signed progress; and the recent progress history used to detect stalling.
 
-This represents fully the environment but it is not what the agent observes.
+This is the complete environment state. The lifecycle state is internal control context: it determines rewards, finishing and stalling, but is not exposed to the policy.
 
 > Note that $v_t$ and $\delta_t$ are part of the environment because they do not correspond *directly* to the controls of the agent. In fact, the agent controls acceleration and steering, but the actual velocity and heading are subject to physical forces.
 > If this were the case, there would be no need to have them as part of the (observed) state. 
@@ -42,7 +40,7 @@ Where:
 * $\delta_t$ is the current front-wheel steering angle.
 * $\bar{\kappa}_t$ is a velocity-dependent summary of the track curvature ahead.
 
-> This is a partial observation of the full state. It omits the lifecycle clock, lap/start progress and stall history, and its local curvature summary does not identify an entire circuit. It is intended to expose useful short-horizon geometry, not to make the feed-forward policy Markov.
+> This is a partial observation of the full state. It omits the lifecycle state and its local curvature summary does not identify an entire circuit. It is intended to expose useful short-horizon geometry, not to make the feed-forward policy Markov.
 
 ## Observed State (2) - LiDAR Readings
 
@@ -59,7 +57,7 @@ Where:
 More precisely, we choose to model a LiDAR sensor with $16$ rays whose first and last rays are included in a field of view (FOV) of $200°$.
 This corresponds to an angular separation of $200°/(16-1) \approx 13.33°$. 
 
-> LiDAR is also a partial observation of the full state. Its local ranges omit the lifecycle variables and the unobserved circuit beyond sensor range.
+> LiDAR is also a partial observation of the full state. Its local ranges omit the lifecycle state and the unobserved circuit beyond sensor range.
 
 
 ## Action Space
@@ -81,7 +79,7 @@ a_{max}\cdot a_t^{throttle}, & a_t^{throttle} \ge 0,\\
 b_{max}\cdot a_t^{throttle}, & a_t^{throttle} < 0,
 \end{cases}
 \qquad
-\delta_t^{\star} = \delta_{max} \cdot a_t^{steer}
+\bar{\delta}_t = \delta_{max} \cdot a_t^{steer}
 $$
 
 where:
@@ -97,18 +95,19 @@ More on this is specified below.
 
 ## Transition Kernel
 
-Given the current physical substate $(x_t, y_t, \theta_t, v_t, \delta_t, C)$ of $s_t$ and a control action $a_t = (a_t^{throttle}, a_t^{steer})$, the physical transition is expressed by the **bicycle model** equations. The environment then updates the lifecycle variables $(\ell_t, p_t, h_t)$ from the transition outcome:
+Given the current physical substate $(x_t, y_t, \theta_t, v_t, \delta_t, C)$ of $s_t$ and a **normalized control action** $a_t = (a_t^{throttle}, a_t^{steer})$, first map it to the physical requests $(\bar a_t^{throttle}, \bar\delta_t)$ defined above. The physical transition is then expressed by the **bicycle model** equations. The environment updates $\ell_t$ from the transition outcome:
 
 $$
 \begin{aligned}
     \dot{x} = v_t \cos(\theta_t) \quad &x_{t+1} = x_{t} + \Delta_t \dot{x} \\
     \dot{y} = v_t \sin(\theta_t) \quad &y_{t+1} = y_{t} + \Delta_t \dot{y} \\
+    \dot{\delta} = \operatorname{clip}\left(\dfrac{\bar\delta_t - \delta_t}{\Delta_t}, -\dot\delta_{max}, +\dot\delta_{max}\right) \quad &\delta_{t+1} = \delta_t + \Delta_t\dot{\delta} \\
     \dot{\theta} = \frac{v_t}{L} \tan(\tilde{\delta}_{t+1}) \quad &\theta_{t+1} = \theta_{t} + \Delta_t \dot{\theta} \\
     \dot{v} = \bar{a}_t^{throttle} - c_d v_t^2 \quad &v_{t+1} = v_{t} + \Delta_t \dot{v}
 \end{aligned}
 $$
 
-Where $L = 3.6m$ is the wheelbase (the distance between front and rear axles).
+Where $L = 3.6m$ is the wheelbase (the distance between front and rear axles) and $\dot\delta_{max}=180°/s$ is the maximum steering rate.
 Some additional constraints are:
 * Since reversing is not allowed, enforce $v_{t+1} \ge 0$.
 * Also enforce $v_{t+1} \le v_{max}$, with $v_{max} = 70 m/s$ (around $250km/h$).
@@ -124,10 +123,7 @@ $$ c_d = \frac{a_{max}}{v_{max}^2} \approx 1.89\cdot 10^{-3}\,\mathrm{m^{-1}} $$
 
 #### Steering Rate Limit
 
-The wheels move toward the requested angle at no more than $\dot\delta_{max} = 180°/s$:
-
-$$ \delta_{t+1} = \delta_t + \mathrm{clip}\left(\delta_t^{\star} - \delta_t,\;
-   -\dot\delta_{max}\Delta_t,\; +\dot\delta_{max}\Delta_t\right) $$
+The requested angle $\bar\delta_t$ is not applied instantaneously. The wheels move toward it at no more than $\dot\delta_{max} = 180°/s$:
 
 This means that a full sweep from full-right steer to full-left steer takes a third of a second (about
 eight agent steps), instead of being available instantaneously. 

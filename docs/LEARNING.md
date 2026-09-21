@@ -99,6 +99,9 @@ $$
 
 Where the term $1-\tanh^2(U_{t,j})$ represents the derivative of $A_t = \tanh(U_t)$, with respect to $U_t$.
 
+> Note that despite $p_{\mathbf\theta}(U_t\mid O_t) \ne \pi_{\mathbf\theta}(A_t\mid O_t)$, since we consider $U_t$ as a fixed result it effectively holds that $ \nabla \log p_{\mathbf\theta}(U_t\mid O_t) = \nabla \log \pi_{\mathbf\theta}(A_t\mid O_t) $.
+> The correction is therefore only important for quantities that are not invariant under the $\tanh$ transformation, such as entropy.
+
 ## Actor and Critic Architectures
 
 Both models are ordinary fully connected multilayer perceptrons with two hidden
