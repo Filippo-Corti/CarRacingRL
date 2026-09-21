@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 @dataclass(frozen=True, slots=True)
 class GAETargets:
     """
-    Store the detached quantities one actor-critic update is fitted to.
+    Store detached TD errors, GAE advantages, and critic targets for one update.
 
     Fields:
         * temporal_difference_errors: Detached one-step TD errors.
@@ -72,15 +72,17 @@ def compute_vector_gae_targets(
     device: torch.device | str | None = None,
 ) -> GAETargets:
     """
-    Blend every horizon of TD error, separately within each worker's own history.
+    Compute TD errors and GAE advantages for a fixed vector-environment rollout.
 
-    The recursion is what forces the per-worker grouping: an advantage borrows
-    from the step that followed it, and on a pooled rollout the next *row* is a
-    different car. Transitions carry the worker they came from, so the columns
-    are recovered from the flat order rather than from the rollout's layout.
+    For each transition, the TD error is
+    `reward + discount * bootstrap_value - current_value`; a true termination
+    uses zero as its bootstrap value. Within every worker and episode, the
+    backward recursion is `advantage = td_error + discount * gae_lambda *
+    next_advantage`.
 
-    It also stops at every episode boundary, because the state after a crash
-    explains nothing about the state before it.
+    The flat rollout is regrouped by environment index because adjacent flat
+    records can come from different workers. The recursion stops at episode
+    boundaries and at each worker's final rollout transition.
     """
     transitions = rollout.transitions
     if any(
@@ -91,13 +93,13 @@ def compute_vector_gae_targets(
             "GAE requires a current and bootstrap value on every rollout transition."
         )
 
+    # 1. Compute one-step TD errors.
     values = torch.tensor(
         [float(transition.current_value or 0.0) for transition in transitions],
         dtype=torch.float32,
         device=device,
     )
-    # A true termination has no future to bootstrap from; a truncation does,
-    # which is the whole reason the two flags are kept apart.
+    # A true termination has no next state to bootstrap from.
     bootstrap_values = torch.tensor(
         [
             0.0 if transition.terminated else float(transition.next_value or 0.0)
@@ -114,6 +116,9 @@ def compute_vector_gae_targets(
     temporal_difference_errors = (
         rewards + discount * bootstrap_values - values
     ).detach()
+
+    # 2. Recurse backwards through each worker's episode history. Flat rows
+    # interleave workers, so recover their independent columns first.
 
     columns: dict[int, list[int]] = defaultdict(list)
     for position, transition in enumerate(transitions):

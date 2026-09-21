@@ -278,6 +278,9 @@ class A2CAgent(ActorCriticAgent):
         objective genuinely produces more: an importance ratio that only exists
         once a rollout is reused.
         """
+        # Notice that the log probabilities are re-computed to track the gradient
+        # In A2C, the policy hasn't changed between collection and update time,
+        # so we are effectively computing the same values twice
         log_probabilities = self.actor.log_probability(observations, raw_actions)
         return -(log_probabilities * advantages.detach()).mean()
 

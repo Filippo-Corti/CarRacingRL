@@ -180,6 +180,10 @@ class OnPolicyAgent(ABC):
     ) -> CollectedActionBatch:
         """
         Sample one stochastic action per vector-environment observation.
+
+        `environment_indices` maps input rows to persistent environment
+        identities. It selects the matching independent policy-sampling stream
+        when inactive workers have been removed from the input batch.
         """
         observations = to_tensor(
             normalized_observations, dtype=self.dtype, device=self.device
@@ -452,5 +456,7 @@ class ActorCriticAgent(OnPolicyAgent):
         value_targets. The targets are computed by combining the standard
         TD(lambda) returns into the GAE advantage estimate.
         """
+        # Notice that we re-compute the V-function values for the observations,
+        # in order to track the gradient throughout the backpropagation
         predictions = self.critic(observations)
         return 0.5 * (predictions - value_targets.detach()).square().mean(), predictions

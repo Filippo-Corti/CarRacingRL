@@ -33,6 +33,7 @@ class VectorRollout:
     Fields:
         * capacity: Valid transitions collected before the rollout is full.
         * environment_count: Number of persistent worker columns.
+        * transitions: Valid transitions in time-major, worker-minor order.
     """
 
     def __init__(self, capacity: int, environment_count: int) -> None:

@@ -26,7 +26,11 @@ class CollectionMode(StrEnum):
 @dataclass(frozen=True, slots=True)
 class CollectedAction:
     """
-    Store the detached action quantities required by all project algorithms.
+    Record one training action and the detached quantities it produced.
+
+    The collector sends `env_action` to the environment while retaining
+    `raw_action` so a squashed Gaussian policy can later score that action
+    exactly. Actor-critic collectors additionally retain their value estimate.
 
     Fields:
         * raw_action: Action sampled before policy-specific post-processing.
@@ -69,7 +73,11 @@ class CollectedAction:
 @dataclass(frozen=True, slots=True)
 class CollectedActionBatch:
     """
-    Store batched detached action and critic values for vector collection.
+    Record one detached training action per vector-environment row.
+
+    Each `NDArray[np.float32]` is a NumPy array of single-precision floating
+    point values. Its leading dimension identifies the vector-environment row,
+    so every row keeps the raw action needed to score the bounded action later.
 
     Fields:
         * raw_actions: Pre-squash actions with shape `(environments, actions)`.
@@ -130,7 +138,8 @@ class AgentUpdateInput:
 @dataclass(frozen=True, slots=True)
 class CompleteEpisodesInput(AgentUpdateInput):
     """
-    Hand a Monte Carlo update the finished episodes it averages over.
+    Input data for a Monte Carlo Agent (e.g., running REINFORCE) to perform its update.
+    The data is in the shape of a list of full trajectories, from episode start to finish.
 
     Fields:
         * episodes: Complete trajectories, one per finished episode.
@@ -151,7 +160,8 @@ class CompleteEpisodesInput(AgentUpdateInput):
 @dataclass(frozen=True, slots=True)
 class FixedRolloutInput(AgentUpdateInput):
     """
-    Hand an actor-critic update the rollout it bootstraps from.
+    Input data for an Actor-Critic Agent (e.g., running A2C or PPO) to perform its update.
+    The data is in the shape of a list of transitions, not organized by episodes/trajectories.
 
     Fields:
         * rollout: Collected transitions in time-by-worker order.

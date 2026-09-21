@@ -191,7 +191,7 @@ $$
 A time-limit ending uses the critic estimate in both reported studies. REINFORCE instead stops its Monte Carlo return at the deadline, so this is an honest limitation when comparing REINFORCE with A2C or PPO. Genuine nonterminal rollout cuts also bootstrap. The TD error is:
 $$
 \delta_t^{\mathbf w}=
-r_{t+1}+B_t-v_{\mathbf w}(O_t).
+r_{t+1}+\gamma B_t-v_{\mathbf w}(O_t).
 $$
 
 The GAE Advantage is computed as:
@@ -203,7 +203,7 @@ $$
   &\text{if `terminated` or `truncated` is true, or}\\
   &\text{if this is the final transition stored in the rollout},
   \end{aligned}\\[6pt]
-\delta_t^{\mathbf w}+\lambda\widehat{\mathbb A}_{t+1},
+\delta_t^{\mathbf w}+\gamma\lambda\widehat{\mathbb A}_{t+1},
 & \text{otherwise}.
 \end{cases}
 $$
@@ -231,9 +231,9 @@ $$ J(\theta) = \mathbb{E} \left[ \sum_{t=0}^{\tau} r(S_t, A_t) \right] $$
 The performance function corresponds to the expected return from a full **episode** in which we apply the policy $\pi_\theta$.
 The objective of the training is to find the parameters $\theta$ that describe the policy $\pi_\theta$ that has the maximum expected return over random episodes. 
 
-All algorithms apply **stochastic gradient descent**, updating $\theta$ periodically:
+All algorithms apply **stochastic gradient ascent**, updating $\theta$ periodically:
 $$ \theta_{k+1} \leftarrow \theta_k + \alpha \nabla J(\theta_k)  $$
-Instead, they differ in the way they compute $J(\theta)$ and the gradient $\nabla J(\theta)$.
+Instead, they differ in the way they compute $J(\theta)$ (or a proxy for it) and the gradient $\nabla J(\theta)$.
 
 ## REINFORCE
 
@@ -266,10 +266,12 @@ r_{t+1}^i+G_{t+1}^i,
 \end{cases}
 $$
 
-Then, it normalizes the returns-to-go using **standardization** as a **non-learned batch baseline**, which is a very simply variance-reduction technique:
+Across the complete batch, it standardizes these return-to-go weights to reduce
+the variance and stabilize the actor-update scale:
 $$ \widetilde G_t^i=\frac{G_t^i-\overline G}{s_G} $$
 
-Finally, the gradient step is executed by using the **REINFORCE estimator**:
+Finally, the gradient step uses the GPOMDP estimator with those
+batch-standardized weights:
 $$
 \hat{\nabla} J(\theta) = 
 \frac{1}{n} 
@@ -277,8 +279,11 @@ $$
 \log\pi_{\mathbf\theta}(A_t^i\mid O_t^i)(\widetilde G_t^i)
 $$
 
-> Note that, in the formulation, $G_\tau^i$ is the full return of the trajectory: standard REINFORCE uses this in its estimation. 
-> Instead, GPOMDP REINFORCE uses all $G_t^i$, the **returns-to-go**.
+> Standard REINFORCE attaches the full trajectory return to every score term.
+> GPOMDP instead uses every $G_t^i$, the **returns-to-go**. The inner sum that
+> defines $G_t^i$ is the second sum in the GPOMDP expression; the loss below
+> therefore implements the same estimator even though it only writes the outer
+> sum explicitly.
 > This distinction makes sure that probabilities are correcly aligned with the parts of the reward they contribute to, instead of assuming that all probabilities contribute to all of it.
 
 ### REINFORCE Pseudocode
@@ -317,10 +322,10 @@ while interactions < B:
             G_t <- R_t+1 + G
     G <- standardize(G)
 
-    # Compute REINFORCE loss (use stored data for the log-probs)
+    # Recompute policy log-probabilities so the loss carries gradients
     L <- 0
     for τ ∈ batch:
-        L <- L - (1/T) Σ_t log π_θ(A_t | O_t) · detach(G_t)
+        L <- L - Σ_t log π_θ(A_t | O_t) · detach(G_t)
     L <- L / N
 
     # Perform the update step (with clipping)
@@ -329,7 +334,6 @@ while interactions < B:
     ∇L <- ∇L · min(1, 0.5 / ||∇L||₂) 
     Adam.step()
 ```
-^ TODO: verify if we actually use the GPOMDP cause in the pseudocode we report standard estimator with just one sum instead of two.
 
 Code references:
 * [`REINFORCE Agent`](../src/agents/reinforce.py)
@@ -350,7 +354,7 @@ Of course, different episodes are handled separately.
 For any transition happened at timestep $t$ of an episode, we:
 * First, compute the one-step TD errors:
 $$
-\delta_t^{\mathbf w} = r_{t+1} + B_t - v_{\mathbf w}(O_t) \\
+\delta_t^{\mathbf w} = r_{t+1} + \gamma B_t - v_{\mathbf w}(O_t) \\
 \text{where} \quad 
 B_t = \begin{cases} 
 0, & \text{if episode ends here} \\
@@ -359,7 +363,7 @@ v_{\mathbf w}(O_{t+1}) & \text{otherwise}
 $$
 * Then, compute the GAE advantage estimator as a weighted sum of the TD errors until the end of the episode:
 $$
-\hat{\mathbb{A}}_t^{\text{GAE}} = \sum_{k=0}^{K_t-1} \lambda^k \delta_{t+k}^{\mathbf w}
+\hat{\mathbb{A}}_t^{\text{GAE}} = \sum_{k=0}^{K_t-1} (\gamma\lambda)^k \delta_{t+k}^{\mathbf w}
 $$
 * Finally, compute the return-to-go equivalent (using $\hat{\mathbb{A}}_t^{\text{GAE}}$ as a shortcut):
 $$ G_t = v_{\mathbf w}(O_t) + \hat{\mathbb{A}}_t^{\text{GAE}} $$
@@ -419,11 +423,11 @@ while interactions < B:
     # Compute TD errors, GAE advantages and critic targets
     for each environment:
         for t <- last,...,0:
-            δ_t <- R_t+1 + B_t - v_w(O_t)
+            δ_t <- R_t+1 + γB_t - v_w(O_t)
             if terminated or truncated or t is the final rollout transition:
                 Ahat_t <- δ_t
             else:
-                Ahat_t <- δ_t + λAhat_t+1
+                Ahat_t <- δ_t + γλAhat_t+1
             G_t <- Ahat_t + v_w(O_t)
 
     # Standardize advantages for the actor only
@@ -444,7 +448,6 @@ while interactions < B:
     Adam_critic.step()
 
 ```
-^ TODO: why do we compute the logprobs in the collection loop here, but we do it separately at end in REINFORCE? But then again we do the standardization? I need to understand these steps better.
 
 Code references:
 * [`A2C Agent`](../src/agents/a2c.py)
@@ -477,7 +480,7 @@ Just like A2C, PPO starts by collecting $N=2048$ transitions.
 Then, for each of these transitions it computes:
 * The GAE advantage estimator, just like A2C+GAE:
     $$
-    \hat{\mathbb{A}}_t^{\text{GAE}} = \sum_{k=0}^{K_t-1} \lambda^k \delta_{t+k}^{\mathbf w}
+    \hat{\mathbb{A}}_t^{\text{GAE}} = \sum_{k=0}^{K_t-1} (\gamma\lambda)^k \delta_{t+k}^{\mathbf w}
     $$
 * The critic target, just like A2C+GAE:
     $$ G_t = v_{\mathbf w}(O_t) + \hat{\mathbb{A}}_t^{\text{GAE}} $$
@@ -549,11 +552,11 @@ while interactions < B:
     # Compute TD errors, GAE advantages and critic targets
     for each environment:
         for t <- last,...,0:
-            δ_t <- R_t+1 + B_t - v_w(O_t)
+            δ_t <- R_t+1 + γB_t - v_w(O_t)
             if terminated or truncated or t is the final rollout transition:
                 Ahat_t <- δ_t
             else:
-                Ahat_t <- δ_t + λAhat_t+1
+                Ahat_t <- δ_t + γλAhat_t+1
             G_t <- Ahat_t + v_w(O_t)
 
     # Standardize advantages once and keep all targets fixed

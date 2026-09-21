@@ -348,8 +348,12 @@ class GaussianPolicy(nn.Module, Policy):
         self, observations: Tensor, raw_actions: Tensor
     ) -> Tensor:
         """
-        Computes the log-probability of observing raw_actions when the environment
-        is observed as observations, under the current Gaussian policy.
+        Score actions from the Gaussian before they are squashed by `tanh`.
+
+        `raw_actions` are the unconstrained Gaussian samples, not the bounded
+        actions sent to the environment. Their values recover the `tanh`
+        transformation exactly, allowing the method to evaluate the induced
+        bounded-action density with its change-of-variables correction.
 
         The policy acts in two steps:
             u~N(mean, stddev^2) -> a = tanh(u)

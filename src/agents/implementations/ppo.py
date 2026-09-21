@@ -129,9 +129,12 @@ class PPOAgent(ActorCriticAgent):
         targets = compute_vector_gae_targets(
             rollout, self.config.discount, self.config.gae_lambda, device=self.device
         )
+        advantages = self._standardize_advantages(targets.raw_advantages)
+        # Both targets are fixed collection quantities throughout all PPO epochs.
+        value_targets = targets.value_targets.detach().clone()
 
-        # 1.5 Unlike A2C, in PPO we immediately compute the log probabilities
-        # of the collected actions under the policy that produced them.
+        # 1.5 PPO also retains the behaviour-policy log probabilities because
+        # later epochs compare their changed policy against that fixed policy.
         stored_log_probabilities = optional_tensor(
             [transition.behaviour_log_probability for transition in transitions],
             device=self.device,
@@ -139,8 +142,6 @@ class PPOAgent(ActorCriticAgent):
         if stored_log_probabilities is None:
             raise ValueError("PPO requires collection log probabilities.")
         old_log_probabilities = stored_log_probabilities.detach().clone()
-        advantages = self._standardize_advantages(targets.raw_advantages)
-        value_targets = targets.value_targets.detach().clone()
 
         # [Compute diagnostics for recording training progress.]
         dispersion = self._gradient_dispersion(observations, raw_actions, advantages)
@@ -423,7 +424,8 @@ class PPOAgent(ActorCriticAgent):
 
         Clipping is the whole of PPO: an action whose probability has already
         grown past the trust region stops contributing gradient, so reusing a
-        rollout for several epochs cannot run away from the behaviour policy.
+        rollout for several epochs cannot run too far away from the behaviour
+        policy.
 
         The extra parameters (ratio and log_ratio) are returned to compute
         the KL indicator, used to detect early stopping.
